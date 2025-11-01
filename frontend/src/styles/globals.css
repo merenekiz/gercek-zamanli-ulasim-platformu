@@ -1,0 +1,236 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-neutral-300;
+  }
+
+  body {
+    @apply text-neutral-900 bg-neutral-50;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-neutral-100;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-neutral-400 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-neutral-500;
+  }
+}
+
+@layer components {
+  /* Button styles */
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-600 active:bg-primary-700;
+  }
+
+  .btn-success {
+    @apply bg-success text-white hover:bg-success-600 active:bg-success-700;
+  }
+
+  .btn-warning {
+    @apply bg-warning text-white hover:bg-warning-600 active:bg-warning-700;
+  }
+
+  .btn-outline {
+    @apply border-2 border-primary text-primary hover:bg-primary hover:text-white;
+  }
+
+  /* Card styles */
+  .card {
+    @apply bg-white rounded-xl shadow-card p-4;
+  }
+
+  .card-hover {
+    @apply transition-shadow duration-200 hover:shadow-card-hover;
+  }
+
+  /* Input styles */
+  .input {
+    @apply w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+  }
+
+  /* Transport mode icons */
+  .transport-icon {
+    @apply w-6 h-6 flex items-center justify-center rounded-full;
+  }
+
+  .transport-icon-bus {
+    @apply bg-blue-100 text-blue-600;
+  }
+
+  .transport-icon-metro {
+    @apply bg-red-100 text-red-600;
+  }
+
+  .transport-icon-tram {
+    @apply bg-green-100 text-green-600;
+  }
+
+  .transport-icon-taxi {
+    @apply bg-yellow-100 text-yellow-600;
+  }
+
+  .transport-icon-walking {
+    @apply bg-neutral-100 text-neutral-600;
+  }
+
+  /* Bottom navigation */
+  .bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 shadow-bottom-nav;
+  }
+
+  .bottom-nav-item {
+    @apply flex flex-col items-center justify-center py-2 text-xs font-medium transition-colors;
+  }
+
+  .bottom-nav-item-active {
+    @apply text-primary;
+  }
+
+  .bottom-nav-item-inactive {
+    @apply text-neutral-500 hover:text-neutral-700;
+  }
+
+  /* Map container */
+  .map-container {
+    @apply relative w-full h-full rounded-xl overflow-hidden;
+  }
+
+  /* Loading spinner */
+  .spinner {
+    @apply animate-spin rounded-full border-2 border-neutral-200 border-t-primary;
+  }
+
+  /* Alert/notification styles */
+  .alert {
+    @apply px-4 py-3 rounded-lg mb-4;
+  }
+
+  .alert-info {
+    @apply bg-blue-50 text-blue-800 border border-blue-200;
+  }
+
+  .alert-success {
+    @apply bg-success-50 text-success-800 border border-success-200;
+  }
+
+  .alert-warning {
+    @apply bg-warning-50 text-warning-800 border border-warning-200;
+  }
+
+  /* Badge styles */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-primary {
+    @apply bg-primary-100 text-primary-800;
+  }
+
+  .badge-success {
+    @apply bg-success-100 text-success-800;
+  }
+
+  .badge-warning {
+    @apply bg-warning-100 text-warning-800;
+  }
+
+  /* Route segment line */
+  .route-segment-line {
+    @apply absolute left-5 top-0 bottom-0 w-0.5 bg-neutral-300;
+  }
+}
+
+@layer utilities {
+  /* Safe area padding for mobile devices */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Text utilities */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  /* Prevent text selection */
+  .no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Glassmorphism effect */
+  .glass {
+    @apply bg-white/80 backdrop-blur-md;
+  }
+
+  /* Hide scrollbar */
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Leaflet map overrides */
+.leaflet-container {
+  @apply h-full w-full;
+}
+
+.leaflet-popup-content-wrapper {
+  @apply rounded-xl;
+}
+
+.leaflet-popup-content {
+  @apply text-sm;
+}
+
+/* Google Maps overrides */
+.gm-style .gm-style-iw-c {
+  @apply rounded-xl;
+}
+
+.gm-style .gm-style-iw-d {
+  @apply overflow-auto;
+}
