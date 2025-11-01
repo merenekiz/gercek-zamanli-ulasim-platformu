@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mail, Lock, AlertCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
 import { login } from '@/lib/store/slices/authSlice';
 import { loginSchema, type LoginFormData } from '@/lib/validation/auth';
@@ -110,35 +110,32 @@ export default function LoginPage() {
             />
 
             {/* Password Input */}
-            <Input
-              label="Şifre"
-              type={showPassword ? 'text' : 'password'}
-              placeholder="••••••••"
-              error={errors.password?.message}
-              leftIcon={<Lock className="w-5 h-5" />}
-              autoComplete="current-password"
-              {...register('password')}
-            />
-
-            {/* Forgot Password Link */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={showPassword}
-                  onChange={(e) => setShowPassword(e.target.checked)}
-                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary-500"
-                />
-                <span className="ml-2 text-sm text-gray-600">
-                  Şifreyi göster
-                </span>
-              </label>
-              <Link
-                href="/forgot-password"
-                className="text-sm font-medium text-primary hover:text-primary-600 transition-colors"
-              >
-                Şifremi unuttum
-              </Link>
+            <div>
+              <Input
+                label="Şifre"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                error={errors.password?.message}
+                leftIcon={<Lock className="w-5 h-5" />}
+                rightIcon={
+                  showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )
+                }
+                onRightIconClick={() => setShowPassword(!showPassword)}
+                autoComplete="current-password"
+                {...register('password')}
+              />
+              <div className="mt-2 text-right">
+                <Link
+                  href="/forgot-password"
+                  className="text-sm font-medium text-primary hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 transition-colors"
+                >
+                  Şifremi unuttum
+                </Link>
+              </div>
             </div>
 
             {/* Submit Button */}
@@ -157,20 +154,20 @@ export default function LoginPage() {
           {/* Divider */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
+              <div className="w-full border-t border-gray-300 dark:border-gray-600" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">veya</span>
+              <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">veya</span>
             </div>
           </div>
 
           {/* Register Link */}
           <div className="text-center">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Hesabınız yok mu?{' '}
               <Link
                 href="/register"
-                className="font-medium text-primary hover:text-primary-600 transition-colors"
+                className="font-medium text-primary hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 transition-colors"
               >
                 Kayıt olun
               </Link>
@@ -179,12 +176,12 @@ export default function LoginPage() {
         </div>
 
         {/* Info Notice */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <div className="flex items-start">
-            <AlertCircle className="w-5 h-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
-            <div className="text-sm text-blue-800">
+            <AlertCircle className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" />
+            <div className="text-sm text-blue-800 dark:text-blue-200">
               <p className="font-medium mb-1">Güvenli Giriş</p>
-              <p className="text-blue-700">
+              <p className="text-blue-700 dark:text-blue-300">
                 Şifreniz güvenli bir şekilde şifrelenir ve saklanır.
               </p>
             </div>

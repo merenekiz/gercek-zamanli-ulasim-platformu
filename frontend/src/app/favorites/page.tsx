@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Heart, MapPin, Trash2, Navigation, Plus, X } from 'lucide-react';
+import { Heart, MapPin, Trash2, Navigation, Plus, X, Search } from 'lucide-react';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import Button from '@/components/common/Button';
 import Card from '@/components/common/Card';
@@ -80,8 +80,9 @@ function FavoritesContent() {
             <Button
               variant="primary"
               onClick={() => router.push('/routes/search')}
-              leftIcon={<Plus className="w-5 h-5" />}
+              className="flex items-center gap-2"
             >
+              <Plus className="w-5 h-5" />
               Yeni Rota
             </Button>
           </div>
@@ -107,8 +108,9 @@ function FavoritesContent() {
               <Button
                 variant="primary"
                 onClick={() => router.push('/routes/search')}
-                leftIcon={<Search className="w-5 h-5" />}
+                className="flex items-center gap-2"
               >
+                <Search className="w-5 h-5" />
                 Rota Aramaya Başla
               </Button>
             </div>
@@ -177,8 +179,9 @@ function FavoritesContent() {
                   size="sm"
                   fullWidth
                   onClick={() => handleUseRoute(favorite)}
-                  leftIcon={<Navigation className="w-4 h-4" />}
+                  className="flex items-center gap-2 justify-center"
                 >
+                  <Navigation className="w-4 h-4" />
                   Bu Rotayı Kullan
                 </Button>
 

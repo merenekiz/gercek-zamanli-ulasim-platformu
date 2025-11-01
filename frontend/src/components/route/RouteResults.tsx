@@ -98,7 +98,7 @@ export default function RouteResults({
             <div className="flex-1">
               {/* Route Type Badge */}
               <div className="flex items-center gap-2 mb-2">
-                {route.modes.map((mode, idx) => (
+                {Array.from(new Set(route.segments.map(s => s.mode))).map((mode, idx) => (
                   <span
                     key={idx}
                     className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium text-white ${
@@ -116,18 +116,18 @@ export default function RouteResults({
                 <div className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
                   <span className="font-medium text-gray-900">
-                    {formatDuration(route.duration)}
+                    {formatDuration(route.totalDuration)}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Navigation className="w-4 h-4" />
-                  <span>{formatDistance(route.distance)}</span>
+                  <span>{formatDistance(route.totalDistance)}</span>
                 </div>
-                {route.price !== undefined && (
+                {route.totalCost !== undefined && (
                   <div className="flex items-center gap-1">
                     <DollarSign className="w-4 h-4" />
                     <span className="font-medium text-gray-900">
-                      {formatPrice(route.price)}
+                      {formatPrice(route.totalCost)}
                     </span>
                   </div>
                 )}
@@ -143,17 +143,18 @@ export default function RouteResults({
                   e.stopPropagation();
                   onSaveToFavorites(route);
                 }}
-                leftIcon={<Heart className="w-4 h-4" />}
+                className="flex items-center gap-2"
               >
+                <Heart className="w-4 h-4" />
                 Kaydet
               </Button>
             )}
           </div>
 
           {/* Route Steps */}
-          {route.steps && route.steps.length > 0 && (
+          {route.segments && route.segments.length > 0 && (
             <div className="space-y-2 mb-4">
-              {route.steps.slice(0, 3).map((step, stepIndex) => (
+              {route.segments.slice(0, 3).map((step, stepIndex) => (
                 <div
                   key={stepIndex}
                   className="flex items-start gap-3 text-sm"
@@ -168,7 +169,7 @@ export default function RouteResults({
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">
                       {transportModeLabels[step.mode as TransportMode]}
-                      {step.routeName && ` - ${step.routeName}`}
+                      {step.routeInfo?.routeName && ` - ${step.routeInfo.routeName}`}
                     </p>
                     {step.instructions && (
                       <p className="text-gray-600 text-xs mt-0.5">
@@ -182,9 +183,9 @@ export default function RouteResults({
                 </div>
               ))}
 
-              {route.steps.length > 3 && (
+              {route.segments.length > 3 && (
                 <p className="text-xs text-gray-500 pl-9">
-                  +{route.steps.length - 3} adım daha
+                  +{route.segments.length - 3} adım daha
                 </p>
               )}
             </div>

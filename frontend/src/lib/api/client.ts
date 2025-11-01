@@ -1,8 +1,11 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { storage } from '../utils';
 
-// API base URL
-const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+// API base URL - use internal URL for SSR, public URL for client-side
+const isServer = typeof window === 'undefined';
+const baseURL = isServer
+  ? (process.env.API_URL || 'http://backend:5001/api/v1')
+  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1');
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({

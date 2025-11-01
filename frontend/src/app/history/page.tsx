@@ -154,8 +154,9 @@ function HistoryContent() {
               <Button
                 variant="outline"
                 onClick={handleClearAll}
-                leftIcon={<Trash2 className="w-5 h-5" />}
+                className="flex items-center gap-2"
               >
+                <Trash2 className="w-5 h-5" />
                 Tümünü Temizle
               </Button>
             )}
@@ -182,8 +183,9 @@ function HistoryContent() {
               <Button
                 variant="primary"
                 onClick={() => router.push('/routes/search')}
-                leftIcon={<Navigation className="w-5 h-5" />}
+                className="flex items-center gap-2"
               >
+                <Navigation className="w-5 h-5" />
                 Rota Aramaya Başla
               </Button>
             </div>

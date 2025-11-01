@@ -13,7 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
-import { searchRoutes, selectRoute } from '@/lib/store/slices/routeSlice';
+import { searchRoutes, setSelectedRoute } from '@/lib/store/slices/routeSlice';
 import { showToast } from '@/lib/store/slices/uiSlice';
 import {
   routeSearchSchema,
@@ -22,12 +22,15 @@ import {
   transportModeLabels,
   transportModeIcons,
 } from '@/lib/validation/route';
+import { TransportMode as TransportModeEnum } from '@/lib/types';
+import dynamic from 'next/dynamic';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import Button from '@/components/common/Button';
 import Card from '@/components/common/Card';
-import LocationSearchInput from '@/components/map/LocationSearchInput';
-import Map from '@/components/map/Map';
 import RouteResults from '@/components/route/RouteResults';
+
+const LocationSearchInput = dynamic(() => import('@/components/map/LocationSearchInput'), { ssr: false });
+const Map = dynamic(() => import('@/components/map/Map'), { ssr: false });
 
 interface LocationData {
   address: string;
@@ -149,11 +152,12 @@ function RouteSearchContent() {
         searchRoutes({
           origin: { lat: origin.lat, lng: origin.lng },
           destination: { lat: destination.lat, lng: destination.lng },
-          modes: data.modes,
-          departureTime: data.departureTime,
-          arriveBy: data.arriveBy,
-          maxWalkingDistance: data.maxWalkingDistance,
-          wheelchair: data.wheelchair,
+          modes: data.modes as unknown as TransportModeEnum[],
+          departureTime: data.departureTime ? new Date(data.departureTime) : undefined,
+          preferences: {
+            maxWalkingDistance: data.maxWalkingDistance,
+            accessibilityRequired: data.wheelchair,
+          },
         })
       ).unwrap();
 
@@ -174,7 +178,7 @@ function RouteSearchContent() {
   };
 
   const handleRouteSelect = (route: any) => {
-    dispatch(selectRoute(route));
+    dispatch(setSelectedRoute(route));
     // Could navigate to route details page
     // router.push(`/routes/${route.id}`);
   };
@@ -330,8 +334,9 @@ function RouteSearchContent() {
                   size="lg"
                   fullWidth
                   isLoading={loading}
-                  leftIcon={<Search className="w-5 h-5" />}
+                  className="flex items-center gap-2 justify-center"
                 >
+                  <Search className="w-5 h-5" />
                   Rota Ara
                 </Button>
               </form>

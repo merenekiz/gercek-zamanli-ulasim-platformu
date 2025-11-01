@@ -123,8 +123,9 @@ function DashboardContent() {
                 variant="outline"
                 size="sm"
                 onClick={handleLogout}
-                leftIcon={<LogOut className="w-4 h-4" />}
+                className="flex items-center gap-2"
               >
+                <LogOut className="w-4 h-4" />
                 Çıkış
               </Button>
             </div>
@@ -208,8 +209,9 @@ function DashboardContent() {
               <Button
                 variant="primary"
                 onClick={() => router.push('/routes/search')}
-                leftIcon={<Search className="w-4 h-4" />}
+                className="flex items-center gap-2"
               >
+                <Search className="w-4 h-4" />
                 Rota Ara
               </Button>
             </div>

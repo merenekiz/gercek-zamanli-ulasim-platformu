@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mail, Lock, User, AlertCircle, Check, X } from 'lucide-react';
+import { Mail, Lock, User, AlertCircle, Check, X, Eye, EyeOff } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
 import { register as registerUser } from '@/lib/store/slices/authSlice';
 import { registerSchema, type RegisterFormData } from '@/lib/validation/auth';
@@ -161,6 +161,14 @@ export default function RegisterPage() {
                 placeholder="••••••••"
                 error={errors.password?.message}
                 leftIcon={<Lock className="w-5 h-5" />}
+                rightIcon={
+                  showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )
+                }
+                onRightIconClick={() => setShowPassword(!showPassword)}
                 autoComplete="new-password"
                 {...register('password')}
               />
@@ -169,14 +177,14 @@ export default function RegisterPage() {
               {password && (
                 <div className="mt-2 space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600">Şifre gücü:</span>
+                    <span className="text-gray-600 dark:text-gray-400">Şifre gücü:</span>
                     <span
                       className={`font-medium ${
                         passwordStrength <= 2
-                          ? 'text-red-600'
+                          ? 'text-red-600 dark:text-red-400'
                           : passwordStrength === 3
-                          ? 'text-yellow-600'
-                          : 'text-green-600'
+                          ? 'text-yellow-600 dark:text-yellow-400'
+                          : 'text-green-600 dark:text-green-400'
                       }`}
                     >
                       {getStrengthText()}
@@ -189,7 +197,7 @@ export default function RegisterPage() {
                         className={`h-1 flex-1 rounded-full transition-colors ${
                           level <= passwordStrength
                             ? getStrengthColor()
-                            : 'bg-gray-200'
+                            : 'bg-gray-200 dark:bg-gray-700'
                         }`}
                       />
                     ))}
@@ -198,8 +206,8 @@ export default function RegisterPage() {
                     <li
                       className={`flex items-center gap-1 ${
                         passwordValidations.minLength
-                          ? 'text-green-600'
-                          : 'text-gray-500'
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-gray-500 dark:text-gray-400'
                       }`}
                     >
                       {passwordValidations.minLength ? (
@@ -212,8 +220,8 @@ export default function RegisterPage() {
                     <li
                       className={`flex items-center gap-1 ${
                         passwordValidations.hasUpperCase
-                          ? 'text-green-600'
-                          : 'text-gray-500'
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-gray-500 dark:text-gray-400'
                       }`}
                     >
                       {passwordValidations.hasUpperCase ? (
@@ -226,8 +234,8 @@ export default function RegisterPage() {
                     <li
                       className={`flex items-center gap-1 ${
                         passwordValidations.hasLowerCase
-                          ? 'text-green-600'
-                          : 'text-gray-500'
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-gray-500 dark:text-gray-400'
                       }`}
                     >
                       {passwordValidations.hasLowerCase ? (
@@ -240,8 +248,8 @@ export default function RegisterPage() {
                     <li
                       className={`flex items-center gap-1 ${
                         passwordValidations.hasNumber
-                          ? 'text-green-600'
-                          : 'text-gray-500'
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-gray-500 dark:text-gray-400'
                       }`}
                     >
                       {passwordValidations.hasNumber ? (
@@ -255,42 +263,26 @@ export default function RegisterPage() {
                 </div>
               )}
 
-              <label className="flex items-center mt-2">
-                <input
-                  type="checkbox"
-                  checked={showPassword}
-                  onChange={(e) => setShowPassword(e.target.checked)}
-                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary-500"
-                />
-                <span className="ml-2 text-sm text-gray-600">
-                  Şifreyi göster
-                </span>
-              </label>
             </div>
 
             {/* Confirm Password Input */}
-            <div>
-              <Input
-                label="Şifre Tekrarı"
-                type={showConfirmPassword ? 'text' : 'password'}
-                placeholder="••••••••"
-                error={errors.confirmPassword?.message}
-                leftIcon={<Lock className="w-5 h-5" />}
-                autoComplete="new-password"
-                {...register('confirmPassword')}
-              />
-              <label className="flex items-center mt-2">
-                <input
-                  type="checkbox"
-                  checked={showConfirmPassword}
-                  onChange={(e) => setShowConfirmPassword(e.target.checked)}
-                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary-500"
-                />
-                <span className="ml-2 text-sm text-gray-600">
-                  Şifreyi göster
-                </span>
-              </label>
-            </div>
+            <Input
+              label="Şifre Tekrarı"
+              type={showConfirmPassword ? 'text' : 'password'}
+              placeholder="••••••••"
+              error={errors.confirmPassword?.message}
+              leftIcon={<Lock className="w-5 h-5" />}
+              rightIcon={
+                showConfirmPassword ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )
+              }
+              onRightIconClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              autoComplete="new-password"
+              {...register('confirmPassword')}
+            />
 
             {/* Terms and Conditions */}
             <div>
@@ -298,19 +290,19 @@ export default function RegisterPage() {
                 <input
                   type="checkbox"
                   {...register('terms')}
-                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary-500 mt-0.5"
+                  className="w-4 h-4 text-primary border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500 mt-0.5"
                 />
-                <span className="ml-2 text-sm text-gray-600">
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
                   <Link
                     href="/terms"
-                    className="text-primary hover:text-primary-600 font-medium"
+                    className="text-primary hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 font-medium"
                   >
                     Kullanım koşullarını
                   </Link>{' '}
                   ve{' '}
                   <Link
                     href="/privacy"
-                    className="text-primary hover:text-primary-600 font-medium"
+                    className="text-primary hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 font-medium"
                   >
                     gizlilik politikasını
                   </Link>{' '}
@@ -318,7 +310,7 @@ export default function RegisterPage() {
                 </span>
               </label>
               {errors.terms && (
-                <p className="mt-1 text-sm text-red-600">
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                   {errors.terms.message}
                 </p>
               )}
@@ -340,20 +332,20 @@ export default function RegisterPage() {
           {/* Divider */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
+              <div className="w-full border-t border-gray-300 dark:border-gray-600" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">veya</span>
+              <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">veya</span>
             </div>
           </div>
 
           {/* Login Link */}
           <div className="text-center">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Zaten hesabınız var mı?{' '}
               <Link
                 href="/login"
-                className="font-medium text-primary hover:text-primary-600 transition-colors"
+                className="font-medium text-primary hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 transition-colors"
               >
                 Giriş yapın
               </Link>
@@ -362,12 +354,12 @@ export default function RegisterPage() {
         </div>
 
         {/* Info Notice */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <div className="flex items-start">
-            <AlertCircle className="w-5 h-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
-            <div className="text-sm text-blue-800">
+            <AlertCircle className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" />
+            <div className="text-sm text-blue-800 dark:text-blue-200">
               <p className="font-medium mb-1">E-posta Doğrulama</p>
-              <p className="text-blue-700">
+              <p className="text-blue-700 dark:text-blue-300">
                 Kayıt sonrası e-posta adresinize doğrulama bağlantısı
                 gönderilecektir.
               </p>

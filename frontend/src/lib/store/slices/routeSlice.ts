@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { routeAPI } from '@/lib/api/routes';
 import { RouteOption, RouteRequest, Location, TransportMode } from '@/lib/types';
+import type { RootState } from '@/lib/store';
 
 interface RouteState {
   searchParams: {
@@ -103,5 +104,13 @@ export const {
   clearRoutes,
   clearError,
 } = routeSlice.actions;
+
+// Selectors
+export const selectRoute = (state: RootState) => state.route;
+export const selectRoutes = (state: RootState) => state.route.routes;
+export const selectSelectedRoute = (state: RootState) => state.route.selectedRoute;
+export const selectSearchParams = (state: RootState) => state.route.searchParams;
+export const selectRouteLoading = (state: RootState) => state.route.loading;
+export const selectRouteError = (state: RootState) => state.route.error;
 
 export default routeSlice.reducer;

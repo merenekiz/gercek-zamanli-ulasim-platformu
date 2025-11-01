@@ -11,13 +11,15 @@ import {
   X,
   Loader2,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import Button from '@/components/common/Button';
 import Card from '@/components/common/Card';
 import Input from '@/components/common/Input';
-import Map from '@/components/map/Map';
 import { useAppDispatch } from '@/lib/store/hooks';
 import { showToast } from '@/lib/store/slices/uiSlice';
+
+const Map = dynamic(() => import('@/components/map/Map'), { ssr: false });
 
 interface Stop {
   id: string;
@@ -160,15 +162,14 @@ function StopsContent() {
             <Button
               variant="outline"
               onClick={getUserLocation}
-              leftIcon={
-                loadingLocation ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <NavigationIcon className="w-5 h-5" />
-                )
-              }
               disabled={loadingLocation}
+              className="flex items-center gap-2"
             >
+              {loadingLocation ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <NavigationIcon className="w-5 h-5" />
+              )}
               Konumu Yenile
             </Button>
           </div>

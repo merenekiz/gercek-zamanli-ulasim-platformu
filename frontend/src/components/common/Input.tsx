@@ -7,6 +7,7 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   helperText?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  onRightIconClick?: () => void;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
@@ -18,6 +19,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       helperText,
       leftIcon,
       rightIcon,
+      onRightIconClick,
       id,
       ...props
     },
@@ -39,7 +41,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         <div className="relative">
           {leftIcon && (
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span className="text-neutral-500">{leftIcon}</span>
+              <span className="text-neutral-500 dark:text-gray-400">{leftIcon}</span>
             </div>
           )}
 
@@ -62,8 +64,16 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           />
 
           {rightIcon && (
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <span className="text-neutral-500">{rightIcon}</span>
+            <div
+              className={cn(
+                "absolute inset-y-0 right-0 pr-3 flex items-center",
+                onRightIconClick ? "cursor-pointer" : "pointer-events-none"
+              )}
+              onClick={onRightIconClick}
+            >
+              <span className="text-neutral-500 dark:text-gray-400 hover:text-neutral-700 dark:hover:text-gray-200 transition-colors">
+                {rightIcon}
+              </span>
             </div>
           )}
         </div>
@@ -73,7 +83,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
 
         {helperText && !error && (
-          <p className="mt-1 text-sm text-neutral-500">{helperText}</p>
+          <p className="mt-1 text-sm text-neutral-500 dark:text-gray-400">{helperText}</p>
         )}
       </div>
     );

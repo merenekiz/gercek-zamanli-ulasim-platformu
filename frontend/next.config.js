@@ -2,12 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-
-  // Uluslararasılaştırma (i18n) - Türkçe varsayılan
-  i18n: {
-    locales: ['tr'],
-    defaultLocale: 'tr',
-  },
+  output: 'standalone',
 
   // Görüntü optimizasyonu
   images: {
