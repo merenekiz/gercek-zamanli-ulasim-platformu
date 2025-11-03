@@ -100,14 +100,14 @@ class RouteService {
 
     const route = data.routes[0];
     const distanceMeters = route.distance;
-    const durationMinutes = Math.ceil(route.duration / 60);
+    const durationSeconds = Math.ceil(route.duration);
 
     const segment: RouteSegment = {
       mode: TransportMode.WALKING,
       from: { ...origin, name: 'Başlangıç' },
       to: { ...destination, name: 'Varış' },
       distance: distanceMeters,
-      duration: durationMinutes,
+      duration: durationSeconds,
       instructions: 'Yürüyerek git',
       polyline: JSON.stringify(route.geometry),
     };
@@ -117,10 +117,10 @@ class RouteService {
       id: this.generateRouteId(),
       segments: [segment],
       totalDistance: distanceMeters,
-      totalDuration: durationMinutes,
+      totalDuration: durationSeconds,
       totalCost: 0,
       departureTime: now,
-      arrivalTime: new Date(now.getTime() + durationMinutes * 60000),
+      arrivalTime: new Date(now.getTime() + durationSeconds * 1000),
       isEcoFriendly: true,
       carbonFootprint: 0,
     };
@@ -147,7 +147,7 @@ class RouteService {
 
     const route = data.routes[0];
     const distanceMeters = route.distance;
-    const durationMinutes = Math.ceil(route.duration / 60);
+    const durationSeconds = Math.ceil(route.duration);
 
     // Taksi ücreti hesapla
     let estimatedCost = 0;
@@ -168,7 +168,7 @@ class RouteService {
 
       const fareEstimate = TaxiFareService.calculateFare(mockFareConfig, {
         distance: distanceMeters,
-        duration: durationMinutes,
+        duration: Math.ceil(durationSeconds / 60),
         isNightTime: TaxiFareService.isNightTime(),
       });
 
@@ -180,7 +180,7 @@ class RouteService {
       from: { ...origin, name: 'Başlangıç' },
       to: { ...destination, name: 'Varış' },
       distance: distanceMeters,
-      duration: durationMinutes,
+      duration: durationSeconds,
       instructions: `${mode} ile git`,
       polyline: JSON.stringify(route.geometry),
     };
@@ -190,10 +190,10 @@ class RouteService {
       id: this.generateRouteId(),
       segments: [segment],
       totalDistance: distanceMeters,
-      totalDuration: durationMinutes,
+      totalDuration: durationSeconds,
       totalCost: estimatedCost,
       departureTime: now,
-      arrivalTime: new Date(now.getTime() + durationMinutes * 60000),
+      arrivalTime: new Date(now.getTime() + durationSeconds * 1000),
       carbonFootprint: (distanceMeters / 1000) * 0.12, // kg CO2 per km
     };
   }
@@ -219,16 +219,16 @@ class RouteService {
 
     // Ortalama hız: Metro 40 km/h, Otobüs 25 km/h
     const avgSpeed = mode === TransportMode.METRO ? 40 : 25;
-    const durationMinutes = Math.ceil((distanceMeters / 1000 / avgSpeed) * 60);
+    const durationSeconds = Math.ceil((distanceMeters / 1000 / avgSpeed) * 3600);
 
-    // Yürüme segmentleri ekle
+    // Yürüme segmentleri ekle (süreleri saniyeye çevir)
     const segments: RouteSegment[] = [
       {
         mode: TransportMode.WALKING,
         from: { ...origin, name: 'Başlangıç' },
         to: { ...origin, name: 'Durak' },
         distance: 200,
-        duration: 3,
+        duration: 180, // 3 dakika = 180 saniye
         instructions: 'En yakın durağa yürü',
       },
       {
@@ -236,7 +236,7 @@ class RouteService {
         from: { ...origin, name: 'Durak' },
         to: { ...destination, name: 'Hedef Durak' },
         distance: distanceMeters - 400,
-        duration: durationMinutes,
+        duration: durationSeconds,
         instructions: `${mode} ile seyahat et`,
         routeInfo: {
           routeName: `${mode} Hattı`,
@@ -248,7 +248,7 @@ class RouteService {
         from: { ...destination, name: 'Durak' },
         to: { ...destination, name: 'Varış' },
         distance: 200,
-        duration: 3,
+        duration: 180, // 3 dakika = 180 saniye
         instructions: 'Varış noktasına yürü',
       },
     ];

@@ -147,7 +147,7 @@ export default function LocationSearchInput({
   return (
     <div className="relative w-full">
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           {label}
         </label>
       )}
@@ -155,7 +155,7 @@ export default function LocationSearchInput({
       <div className="relative">
         {/* Search Icon */}
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
+          <Search className="h-5 w-5 text-gray-400 dark:text-gray-500" />
         </div>
 
         {/* Input */}
@@ -169,21 +169,24 @@ export default function LocationSearchInput({
           className={`
             block w-full pl-10 pr-10 py-2.5
             border rounded-lg
+            bg-white dark:bg-gray-700
+            text-gray-900 dark:text-white
+            placeholder:text-gray-400 dark:placeholder:text-gray-500
             focus:ring-2 focus:ring-primary-500 focus:border-transparent
-            disabled:bg-gray-100 disabled:cursor-not-allowed
-            ${error ? 'border-red-500' : 'border-gray-300'}
+            disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed
+            ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}
           `}
         />
 
         {/* Loading/Clear Icon */}
         <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
           {loading ? (
-            <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
+            <Loader2 className="h-5 w-5 text-gray-400 dark:text-gray-500 animate-spin" />
           ) : query ? (
             <button
               type="button"
               onClick={handleClear}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
             >
               <X className="h-5 w-5" />
             </button>
@@ -193,28 +196,28 @@ export default function LocationSearchInput({
 
       {/* Error Message */}
       {error && (
-        <p className="mt-1 text-sm text-red-600">{error}</p>
+        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>
       )}
 
       {/* Dropdown Results */}
       {showDropdown && results.length > 0 && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto"
+          className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-64 overflow-y-auto"
         >
           {results.map((location, index) => (
             <button
               key={index}
               type="button"
               onClick={() => handleLocationSelect(location)}
-              className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-start gap-3 transition-colors border-b border-gray-100 last:border-b-0"
+              className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-start gap-3 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
             >
-              <MapPin className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+              <MapPin className="w-5 h-5 text-primary dark:text-primary-400 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                   {location.display_name.split(',')[0]}
                 </p>
-                <p className="text-xs text-gray-500 truncate">
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                   {location.display_name}
                 </p>
               </div>
@@ -227,9 +230,9 @@ export default function LocationSearchInput({
       {showDropdown && !loading && query.length >= 3 && results.length === 0 && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4"
+          className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-4"
         >
-          <p className="text-sm text-gray-500 text-center">
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
             Sonuç bulunamadı
           </p>
         </div>

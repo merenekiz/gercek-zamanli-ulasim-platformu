@@ -22,15 +22,15 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref
   ) => {
-    const baseClasses = 'inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseClasses = 'inline-flex items-center justify-center rounded-xl font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden group';
 
     const variantClasses = {
-      primary: 'bg-primary text-white hover:bg-primary-600 focus:ring-primary-500',
-      secondary: 'bg-neutral-200 text-neutral-900 hover:bg-neutral-300 focus:ring-neutral-500',
-      success: 'bg-success text-white hover:bg-success-600 focus:ring-success-500',
-      warning: 'bg-warning text-white hover:bg-warning-600 focus:ring-warning-500',
-      outline: 'border-2 border-primary text-primary hover:bg-primary hover:text-white focus:ring-primary-500',
-      ghost: 'text-primary hover:bg-primary-50 focus:ring-primary-500',
+      primary: 'bg-gradient-primary text-white hover:shadow-xl hover:scale-105 focus:ring-primary-500 dark:shadow-primary-900/50 before:absolute before:inset-0 before:bg-white/10 before:translate-y-full before:transition-transform before:duration-300 hover:before:translate-y-0',
+      secondary: 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-neutral-500 border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-lg hover:scale-105',
+      success: 'bg-gradient-success text-white hover:shadow-xl hover:shadow-success/30 hover:scale-105 focus:ring-success-500',
+      warning: 'bg-warning text-white hover:bg-warning-600 hover:shadow-xl hover:shadow-warning/30 hover:scale-105 focus:ring-warning-500',
+      outline: 'border-2 border-primary text-primary hover:bg-primary hover:text-white focus:ring-primary-500 dark:border-primary-400 dark:text-primary-400 dark:hover:bg-primary-600 hover:shadow-lg hover:scale-105',
+      ghost: 'text-primary hover:bg-primary-50 dark:hover:bg-gray-800 focus:ring-primary-500 dark:text-primary-400 hover:scale-105',
     };
 
     const sizeClasses = {

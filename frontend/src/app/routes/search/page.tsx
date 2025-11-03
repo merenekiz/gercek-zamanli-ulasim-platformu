@@ -11,6 +11,7 @@ import {
   ArrowLeftRight,
   Settings,
   X,
+  Navigation,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
 import { searchRoutes, setSelectedRoute } from '@/lib/store/slices/routeSlice';
@@ -55,6 +56,7 @@ function RouteSearchContent() {
   const [destination, setDestination] = useState<LocationData | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [mapMarkers, setMapMarkers] = useState<any[]>([]);
+  const [mapPolylines, setMapPolylines] = useState<any[]>([]);
 
   const {
     control,
@@ -94,6 +96,36 @@ function RouteSearchContent() {
     }
     setMapMarkers(markers);
   }, [origin, destination]);
+
+  // Update map polylines when selected route changes
+  useEffect(() => {
+    if (!selectedRoute) {
+      setMapPolylines([]);
+      return;
+    }
+
+    const polylines = [];
+    for (const segment of selectedRoute.segments) {
+      if (segment.polyline) {
+        try {
+          const geometry = JSON.parse(segment.polyline);
+          if (geometry.type === 'LineString' && geometry.coordinates) {
+            // Convert GeoJSON coordinates [lng, lat] to Leaflet [lat, lng]
+            const positions = geometry.coordinates.map((coord: number[]) => [coord[1], coord[0]] as [number, number]);
+            polylines.push({
+              positions,
+              color: segment.mode === 'WALKING' ? '#4CAF50' : '#2196F3',
+              weight: 4,
+              opacity: 0.7,
+            });
+          }
+        } catch (error) {
+          console.error('Error parsing polyline:', error);
+        }
+      }
+    }
+    setMapPolylines(polylines);
+  }, [selectedRoute]);
 
   const handleOriginSelect = (location: any) => {
     setOrigin({
@@ -184,32 +216,38 @@ function RouteSearchContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <header className="bg-gradient-primary shadow-xl border-b border-white/10 sticky top-0 z-40 backdrop-blur-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <button
                 onClick={() => router.push('/dashboard')}
-                className="text-gray-600 hover:text-gray-900"
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all duration-300 hover:scale-110 backdrop-blur-sm shadow-lg"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
-              <h1 className="text-2xl font-bold text-gray-900">Rota Ara</h1>
+              <div>
+                <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <Navigation className="w-7 h-7" />
+                  Rota Ara
+                </h1>
+                <p className="text-primary-100 text-sm mt-0.5">En iyi rotayı bulun</p>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column: Search Form & Results */}
           <div className="space-y-6">
             {/* Search Form */}
-            <Card className="p-6">
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <Card variant="glass" className="p-6 animate-scale-in">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
                 {/* Origin Input */}
                 <LocationSearchInput
                   label="Nereden"
@@ -219,13 +257,13 @@ function RouteSearchContent() {
                 />
 
                 {/* Swap Button */}
-                <div className="flex justify-center">
+                <div className="flex justify-center -my-2">
                   <button
                     type="button"
                     onClick={handleSwapLocations}
-                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                    className="p-3 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 hover:from-primary/20 hover:to-primary/10 dark:hover:from-primary/30 dark:hover:to-primary/20 transition-all duration-300 hover:scale-110 group border border-primary/20 dark:border-primary/30 shadow-lg"
                   >
-                    <ArrowLeftRight className="w-5 h-5 text-gray-600" />
+                    <ArrowLeftRight className="w-5 h-5 text-primary dark:text-primary-400 group-hover:rotate-180 transition-transform duration-500" />
                   </button>
                 </div>
 
@@ -239,32 +277,33 @@ function RouteSearchContent() {
 
                 {/* Transport Modes */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ulaşım Türleri
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                    🚌 Ulaşım Türleri
                   </label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-3">
                     {transportModes.map((mode) => (
                       <button
                         key={mode}
                         type="button"
                         onClick={() => toggleMode(mode)}
                         className={`
-                          px-3 py-2 rounded-lg text-sm font-medium
-                          transition-all flex items-center gap-2
+                          px-4 py-2.5 rounded-xl text-sm font-semibold
+                          transition-all duration-300 flex items-center gap-2
+                          border-2 shadow-sm hover:shadow-md hover:scale-105
                           ${
                             selectedModes?.includes(mode)
-                              ? 'bg-primary text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              ? 'bg-gradient-primary text-white border-primary-600 dark:border-primary-400 shadow-primary/20 scale-105'
+                              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-primary/40 dark:hover:border-primary/40'
                           }
                         `}
                       >
-                        <span>{transportModeIcons[mode]}</span>
+                        <span className="text-base">{transportModeIcons[mode]}</span>
                         <span>{transportModeLabels[mode]}</span>
                       </button>
                     ))}
                   </div>
                   {errors.modes && (
-                    <p className="mt-1 text-sm text-red-600">
+                    <p className="mt-2 text-sm text-warning font-medium animate-fade-in">
                       {errors.modes.message}
                     </p>
                   )}
@@ -274,7 +313,7 @@ function RouteSearchContent() {
                 <button
                   type="button"
                   onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex items-center gap-2 text-sm text-primary hover:text-primary-600 font-medium"
+                  className="flex items-center gap-2 text-sm text-primary hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 font-medium"
                 >
                   <Settings className="w-4 h-4" />
                   Gelişmiş Ayarlar
@@ -282,23 +321,23 @@ function RouteSearchContent() {
 
                 {/* Advanced Options */}
                 {showAdvanced && (
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     {/* Departure Time */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         <Clock className="w-4 h-4 inline mr-1" />
                         Kalkış Zamanı
                       </label>
                       <input
                         type="datetime-local"
                         {...register('departureTime')}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       />
                     </div>
 
                     {/* Max Walking Distance */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Maksimum Yürüme Mesafesi: {watch('maxWalkingDistance')}m
                       </label>
                       <input
@@ -318,9 +357,9 @@ function RouteSearchContent() {
                       <input
                         type="checkbox"
                         {...register('wheelchair')}
-                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary-500"
+                        className="w-4 h-4 text-primary border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500"
                       />
-                      <span className="text-sm text-gray-700">
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
                         Tekerlekli sandalye erişimi
                       </span>
                     </label>
@@ -344,10 +383,17 @@ function RouteSearchContent() {
 
             {/* Route Results */}
             {routes.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  Bulunan Rotalar ({routes.length})
-                </h2>
+              <div className="animate-fade-in">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="h-1 w-12 bg-gradient-primary rounded-full"></div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <span>🎯</span>
+                    <span>Bulunan Rotalar</span>
+                    <span className="px-3 py-1 bg-gradient-primary text-white text-sm font-semibold rounded-full shadow-lg">
+                      {routes.length}
+                    </span>
+                  </h2>
+                </div>
                 <RouteResults
                   routes={routes}
                   onRouteSelect={handleRouteSelect}
@@ -358,8 +404,8 @@ function RouteSearchContent() {
           </div>
 
           {/* Right Column: Map */}
-          <div className="lg:sticky lg:top-6 h-[calc(100vh-8rem)]">
-            <Card className="h-full p-0 overflow-hidden">
+          <div className="lg:sticky lg:top-28 h-[calc(100vh-10rem)]">
+            <Card variant="glass" className="h-full p-0 overflow-hidden shadow-xl animate-scale-in" style={{ animationDelay: '200ms' } as any}>
               <Map
                 center={
                   origin
@@ -368,7 +414,8 @@ function RouteSearchContent() {
                 }
                 zoom={origin || destination ? 14 : 13}
                 markers={mapMarkers}
-                className="h-full w-full rounded-lg"
+                polylines={mapPolylines}
+                className="h-full w-full rounded-2xl"
               />
             </Card>
           </div>

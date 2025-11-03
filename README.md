@@ -157,6 +157,40 @@ Gerçek Zamanlı Ulaşım Platformu, Ankara şehri için tasarlanmış kapsamlı
 
 ---
 
+## 🎯 Phase 5'te Yapılan Önemli İyileştirmeler
+
+### Backend Düzeltmeleri
+- ✅ **User Model Fix:** `underscored: true` eklendi (database column mapping sorunu çözüldü)
+- ✅ **OSRM API:** Duration formatı dakikadan saniyeye çevrildi
+- ✅ **Polyline Geometry:** GeoJSON formatında route geometry dönüyor
+- ✅ **Route Service:** Walking, Taxi, Public Transit rotaları OSRM ile hesaplanıyor
+
+### Frontend Geliştirmeleri
+- ✅ **Karanlık Mod:** Login, Register, Route Search sayfalarında tam destek
+- ✅ **Route Polylines:** Haritada OSRM rotaları çiziliyor (GeoJSON → Leaflet conversion)
+- ✅ **Password Visibility:** Eye/EyeOff ikonları ile şifre göster/gizle
+- ✅ **Component Updates:** LocationSearchInput, Button, Input, Card - dark mode
+- ✅ **Responsive Design:** Mobil ve tablet uyumlu iyileştirmeler
+
+### Düzeltilen Kritik Hatalar
+- ✅ Login/Register: `"isActive column not found"` PostgreSQL hatası
+- ✅ Map: OSRM route polylines görünmüyor sorunu
+- ✅ Dark Mode: Okunmayan/görünmeyen text renkleri
+- ✅ API Connection: Frontend-Backend bağlantı sorunları
+
+### Test Edilenler
+```bash
+# Başarıyla test edilen özellikler:
+✅ Kullanıcı kayıt ve login
+✅ Konum arama (Nominatim API)
+✅ Rota hesaplama (OSRM - walking, driving)
+✅ Haritada rota gösterimi
+✅ Karanlık mod geçişleri
+✅ Docker containerları (PostgreSQL, MongoDB, Redis, Backend, Frontend)
+```
+
+---
+
 ## 🚀 Başlangıç
 
 ### Ön Gereksinimler
@@ -184,8 +218,8 @@ cp .env.example .env.local
 
 `.env.local` dosyasını düzenleyin:
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:5000/api
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_api_key_here
+NEXT_PUBLIC_API_URL=http://localhost:5001/api/v1
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_api_key_here  # Opsiyonel
 ```
 
 **Backend:**
@@ -207,7 +241,7 @@ Bu komut aşağıdaki servisleri başlatır:
 - PostgreSQL (port 5432)
 - MongoDB (port 27017)
 - Redis (port 6379)
-- Backend API (port 5000)
+- Backend API (port 5001)
 - Frontend (port 3000)
 
 4. **Veritabanını başlatın:**
@@ -222,8 +256,9 @@ docker-compose exec postgres psql -U ankara_admin -d ankara_ulasim_db -f /docker
 5. **Uygulamayı açın:**
 
 - Frontend: http://localhost:3000
-- Backend API: http://localhost:5000
-- API Health: http://localhost:5000/health
+- Backend API: http://localhost:5001
+- API Health: http://localhost:5001/health
+- API Docs: http://localhost:5001/api
 
 ---
 
@@ -526,9 +561,9 @@ Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için [LICENSE](LICE
 
 ## 📊 Proje Durumu
 
-**Versiyon:** 0.1.0 (Development)
-**Son Güncelleme:** Ocak 2025
-**Durum:** 🚧 Aktif Geliştirme
+**Versiyon:** 0.5.0 (Development)
+**Son Güncelleme:** Kasım 2025
+**Durum:** 🚧 Aktif Geliştirme - Phase 5 Tamamlandı
 
 ### Roadmap
 
@@ -578,16 +613,22 @@ Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için [LICENSE](LICE
 - [x] Harita işaretleyicileri ve çizgi desteği
 - [x] Gelişmiş arama seçenekleri (tekerlekli sandalye, maksimum yürüme mesafesi)
 
-**📋 Planlanan (Phase 5 - Backend Entegrasyonu ve İyileştirmeler)**
-- [ ] Backend API entegrasyonu (rotalar, favoriler, geçmiş)
+**✅ Tamamlanan (Phase 5 - Backend Entegrasyonu ve İyileştirmeler)**
+- [x] Backend API entegrasyonu (rotalar çalışıyor)
+- [x] OSRM API entegrasyonu (yürüme ve araç rotaları)
+- [x] Rota haritada polyline olarak gösterimi
+- [x] Karanlık mod tam desteği (tüm sayfalar)
+- [x] UI/UX iyileştirmeleri (Button, Input, Card, LocationSearch)
+- [x] Frontend-Backend bağlantı sorunları düzeltildi
+- [x] User model database şeması düzeltildi (underscored)
+- [x] Password visibility toggle (Eye/EyeOff ikonları)
+- [x] Rota arama sayfası responsive tasarım
 - [ ] Toplu taşıma veri entegrasyonu (CSV ayrıştırıcı, veri ekleyici)
-- [ ] Gerçek rota hesaplama (OSRM API entegrasyonu)
 - [ ] Favori rotalar CRUD API implementasyonu
 - [ ] Seyahat geçmişi API implementasyonu
 - [ ] WebSocket sunucusu gerçek zamanlı güncellemeler
 - [ ] Yer tavsiyeleri (Google Places API - opsiyonel)
 - [ ] Profil ayarları sayfası
-- [ ] UI/UX iyileştirmeleri ve son rötuşlar
 - [ ] Birim ve entegrasyon testleri
 - [ ] Performans optimizasyonları
 - [ ] MVP lansmanı
