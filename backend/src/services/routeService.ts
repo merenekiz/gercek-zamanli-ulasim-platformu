@@ -1,29 +1,32 @@
 /**
- * Rota Planlama Servisi
+ * Rota Planlama Servisi - Google Transit API
  *
  * Bu servis, kullanıcının başlangıç ve bitiş noktaları arasında
- * çok modlu ulaşım seçenekleri ile rota hesaplar.
+ * SADECE TOPLU TAŞIMA seçenekleri ile rota hesaplar.
+ *
+ * Desteklenen Modlar:
+ * - Otobüs (BUS)
+ * - Metro (METRO/SUBWAY)
+ * - Tramvay (TRAM)
+ * - Tren (TRAIN/RAIL)
+ * - Ankaray (TRAM)
  */
 
-import axios from 'axios';
 import { redisClient } from '../config/database';
 import {
   RouteRequest,
   RouteOption,
   RouteSegment,
   TransportMode,
-  Location,
 } from '../types';
-import TaxiFareService from './taxiFareService';
 import logger from '../utils/logger';
+import { GoogleTransitService } from './googleTransitService';
 
 class RouteService {
-  private readonly GOOGLE_DIRECTIONS_API_KEY = process.env.GOOGLE_DIRECTIONS_API_KEY || '';
-  private readonly OSRM_API_URL = 'https://router.project-osrm.org';
-  private readonly CACHE_TTL = 300; // 5 dakika
+  private readonly CACHE_TTL = 1800; // 30 dakika
 
   /**
-   * Rota arama - Çok modlu seçenekler döndürür
+   * Rota arama - Toplu taşıma seçenekleri döndürür
    */
   async searchRoutes(request: RouteRequest): Promise<RouteOption[]> {
     try {
@@ -35,254 +38,218 @@ class RouteService {
         return cachedResult;
       }
 
-      const routes: RouteOption[] = [];
+      // Google Transit API ile rota seçenekleri al
+      const routes = await this.calculateTransitRoutes(request);
 
-      // Her ulaşım modu için rota hesapla
-      for (const mode of request.modes) {
-        try {
-          let routeOption: RouteOption | null = null;
-
-          switch (mode) {
-            case TransportMode.WALKING:
-              routeOption = await this.calculateWalkingRoute(request);
-              break;
-            case TransportMode.TAXI:
-            case TransportMode.UBER:
-            case TransportMode.BOLT:
-              routeOption = await this.calculateTaxiRoute(request, mode);
-              break;
-            case TransportMode.BUS:
-            case TransportMode.METRO:
-            case TransportMode.TRAM:
-            case TransportMode.ANKARAY:
-              routeOption = await this.calculatePublicTransitRoute(request, mode);
-              break;
-            default:
-              logger.warn(`Unsupported transport mode: ${mode}`);
-          }
-
-          if (routeOption) {
-            routes.push(routeOption);
-          }
-        } catch (error) {
-          logger.error(`Error calculating route for mode ${mode}:`, error);
-        }
-      }
-
-      // Rotaları performansa göre sırala
+      // Rotaları sırala
       const sortedRoutes = this.sortRoutes(routes, request.preferences);
 
       // Cache'e kaydet
       await this.saveToCache(cacheKey, sortedRoutes);
 
-      return sortedRoutes;
-    } catch (error) {
-      logger.error('Route search error:', error);
-      throw new Error('Rota arama sırasında hata oluştu');
-    }
-  }
-
-  /**
-   * Yürüme rotası hesapla (OSRM kullanarak)
-   */
-  private async calculateWalkingRoute(request: RouteRequest): Promise<RouteOption> {
-    const { origin, destination } = request;
-
-    // OSRM API çağrısı
-    const url = `${this.OSRM_API_URL}/route/v1/foot/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&steps=true`;
-
-    const response = await axios.get(url, { timeout: 5000 });
-    const data = response.data;
-
-    if (!data.routes || data.routes.length === 0) {
-      throw new Error('Yürüme rotası bulunamadı');
-    }
-
-    const route = data.routes[0];
-    const distanceMeters = route.distance;
-    const durationSeconds = Math.ceil(route.duration);
-
-    const segment: RouteSegment = {
-      mode: TransportMode.WALKING,
-      from: { ...origin, name: 'Başlangıç' },
-      to: { ...destination, name: 'Varış' },
-      distance: distanceMeters,
-      duration: durationSeconds,
-      instructions: 'Yürüyerek git',
-      polyline: JSON.stringify(route.geometry),
-    };
-
-    const now = new Date();
-    return {
-      id: this.generateRouteId(),
-      segments: [segment],
-      totalDistance: distanceMeters,
-      totalDuration: durationSeconds,
-      totalCost: 0,
-      departureTime: now,
-      arrivalTime: new Date(now.getTime() + durationSeconds * 1000),
-      isEcoFriendly: true,
-      carbonFootprint: 0,
-    };
-  }
-
-  /**
-   * Taksi rotası hesapla
-   */
-  private async calculateTaxiRoute(
-    request: RouteRequest,
-    mode: TransportMode
-  ): Promise<RouteOption> {
-    const { origin, destination } = request;
-
-    // OSRM ile araç rotası hesapla
-    const url = `${this.OSRM_API_URL}/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson`;
-
-    const response = await axios.get(url, { timeout: 5000 });
-    const data = response.data;
-
-    if (!data.routes || data.routes.length === 0) {
-      throw new Error('Araç rotası bulunamadı');
-    }
-
-    const route = data.routes[0];
-    const distanceMeters = route.distance;
-    const durationSeconds = Math.ceil(route.duration);
-
-    // Taksi ücreti hesapla
-    let estimatedCost = 0;
-    if (mode === TransportMode.TAXI) {
-      // TODO: Veritabanından taksi tarifesini al
-      const mockFareConfig = {
-        id: 'mock',
-        cityId: 'mock',
-        openingFee: 15.0,
-        perKmRate: 12.5,
-        minFare: 50.0,
-        waitingFeePerHour: 150.0,
-        validFrom: new Date(),
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      const fareEstimate = TaxiFareService.calculateFare(mockFareConfig, {
-        distance: distanceMeters,
-        duration: Math.ceil(durationSeconds / 60),
-        isNightTime: TaxiFareService.isNightTime(),
+      logger.info(`Found ${sortedRoutes.length} transit routes`, {
+        origin: request.origin,
+        destination: request.destination,
       });
 
-      estimatedCost = fareEstimate.totalFare;
+      return sortedRoutes;
+    } catch (error: any) {
+      logger.error('Route search error:', error);
+      throw new Error('Rota arama sırasında hata oluştu: ' + error.message);
     }
-
-    const segment: RouteSegment = {
-      mode,
-      from: { ...origin, name: 'Başlangıç' },
-      to: { ...destination, name: 'Varış' },
-      distance: distanceMeters,
-      duration: durationSeconds,
-      instructions: `${mode} ile git`,
-      polyline: JSON.stringify(route.geometry),
-    };
-
-    const now = new Date();
-    return {
-      id: this.generateRouteId(),
-      segments: [segment],
-      totalDistance: distanceMeters,
-      totalDuration: durationSeconds,
-      totalCost: estimatedCost,
-      departureTime: now,
-      arrivalTime: new Date(now.getTime() + durationSeconds * 1000),
-      carbonFootprint: (distanceMeters / 1000) * 0.12, // kg CO2 per km
-    };
   }
 
   /**
-   * Toplu taşıma rotası hesapla
-   * NOT: Gerçek implementasyon için GTFS verisi ve routing algoritması gerekli
+   * Google Transit API ile toplu taşıma rotaları hesapla
    */
-  private async calculatePublicTransitRoute(
-    request: RouteRequest,
-    mode: TransportMode
-  ): Promise<RouteOption> {
-    // TODO: Gerçek toplu taşıma routing
-    // Bu basitleştirilmiş bir örnek
-    const { origin, destination } = request;
+  private async calculateTransitRoutes(request: RouteRequest): Promise<RouteOption[]> {
+    const { origin, destination, departureTime, userId } = request;
 
-    const distanceMeters = TaxiFareService.calculateDistanceBetweenPoints(
-      origin.lat,
-      origin.lng,
-      destination.lat,
-      destination.lng
+    // Rate limit kontrolü
+    if (userId) {
+      const allowed = await GoogleTransitService.checkRateLimit(userId);
+      if (!allowed) {
+        throw new Error('İstek limiti aşıldı. Lütfen daha sonra tekrar deneyin.');
+      }
+    }
+
+    // Google Transit API'den rota seçenekleri al
+    const transitResult = await GoogleTransitService.getMultipleRouteOptions({
+      origin: { lat: origin.lat, lng: origin.lng },
+      destination: { lat: destination.lat, lng: destination.lng },
+      departureTime,
+      language: 'tr',
+    });
+
+    if (!transitResult || transitResult.length === 0) {
+      logger.warn('No transit routes found', { origin, destination });
+      return [];
+    }
+
+    // Google formatını backend formatına dönüştür
+    const routes: RouteOption[] = transitResult.map((googleRoute) =>
+      this.convertGoogleRouteToRouteOption(googleRoute)
     );
 
-    // Ortalama hız: Metro 40 km/h, Otobüs 25 km/h
-    const avgSpeed = mode === TransportMode.METRO ? 40 : 25;
-    const durationSeconds = Math.ceil((distanceMeters / 1000 / avgSpeed) * 3600);
+    return routes;
+  }
 
-    // Yürüme segmentleri ekle (süreleri saniyeye çevir)
-    const segments: RouteSegment[] = [
-      {
-        mode: TransportMode.WALKING,
-        from: { ...origin, name: 'Başlangıç' },
-        to: { ...origin, name: 'Durak' },
-        distance: 200,
-        duration: 180, // 3 dakika = 180 saniye
-        instructions: 'En yakın durağa yürü',
-      },
-      {
-        mode,
-        from: { ...origin, name: 'Durak' },
-        to: { ...destination, name: 'Hedef Durak' },
-        distance: distanceMeters - 400,
-        duration: durationSeconds,
-        instructions: `${mode} ile seyahat et`,
-        routeInfo: {
-          routeName: `${mode} Hattı`,
-          stops: Math.ceil(distanceMeters / 1000),
+  /**
+   * Google route'u RouteOption formatına dönüştür
+   */
+  private convertGoogleRouteToRouteOption(
+    googleRoute: any
+  ): RouteOption {
+    const segments: RouteSegment[] = [];
+
+    // Her adımı segment olarak ekle
+    for (const step of googleRoute.steps) {
+      const segment: RouteSegment = {
+        mode: this.mapGoogleModeToTransportMode(step.travelMode, step.transit?.line?.vehicle?.type),
+        from: {
+          lat: step.startLocation.lat,
+          lng: step.startLocation.lng,
+          name: step.transit?.departureStop?.name || 'Başlangıç',
         },
-      },
-      {
-        mode: TransportMode.WALKING,
-        from: { ...destination, name: 'Durak' },
-        to: { ...destination, name: 'Varış' },
-        distance: 200,
-        duration: 180, // 3 dakika = 180 saniye
-        instructions: 'Varış noktasına yürü',
-      },
-    ];
+        to: {
+          lat: step.endLocation.lat,
+          lng: step.endLocation.lng,
+          name: step.transit?.arrivalStop?.name || 'Varış',
+        },
+        distance: step.distance,
+        duration: step.duration,
+        instructions: step.instructions,
+        polyline: step.polyline,
+      };
 
-    const now = new Date();
+      // Transit (toplu taşıma) adımıysa detayları ekle
+      if (step.transit) {
+        segment.routeInfo = {
+          routeName: step.transit.line.shortName || step.transit.line.name,
+          routeLongName: step.transit.line.name,
+          routeColor: step.transit.line.color,
+          routeTextColor: step.transit.line.textColor,
+          vehicleType: step.transit.line.vehicle.type,
+          vehicleName: step.transit.line.vehicle.name,
+          vehicleIcon: step.transit.line.vehicle.icon,
+          departureStop: step.transit.departureStop.name,
+          arrivalStop: step.transit.arrivalStop.name,
+          departureTime: step.transit.departureTime,
+          arrivalTime: step.transit.arrivalTime,
+          stops: step.transit.numStops,
+          headsign: step.transit.headsign,
+          agency: step.transit.line.agency?.name,
+        };
+      }
+
+      segments.push(segment);
+    }
+
+    // Toplam değerleri hesapla
+    const totalDistance = segments.reduce((sum, seg) => sum + seg.distance, 0);
     const totalDuration = segments.reduce((sum, seg) => sum + seg.duration, 0);
+
+    // Toplu taşıma ücreti (Ankara kart)
+    const totalCost = this.calculateTransitCost(segments);
 
     return {
       id: this.generateRouteId(),
       segments,
-      totalDistance: distanceMeters,
+      totalDistance,
       totalDuration,
-      totalCost: 17.5, // Ankara kart ücreti
-      departureTime: now,
-      arrivalTime: new Date(now.getTime() + totalDuration * 60000),
+      totalCost,
+      departureTime: googleRoute.departureTime || new Date(),
+      arrivalTime: googleRoute.arrivalTime || new Date(Date.now() + totalDuration * 1000),
       isEcoFriendly: true,
-      carbonFootprint: (distanceMeters / 1000) * 0.04, // kg CO2 per km
+      carbonFootprint: (totalDistance / 1000) * 0.04, // kg CO2 per km (toplu taşıma)
     };
   }
 
   /**
-   * Rotaları sırala (hız, maliyet, çevre dostu)
+   * Google travel mode'u TransportMode'a dönüştür
    */
-  private sortRoutes(routes: RouteOption[], preferences?: RouteRequest['preferences']): RouteOption[] {
+  private mapGoogleModeToTransportMode(
+    travelMode: string,
+    vehicleType?: string
+  ): TransportMode {
+    if (travelMode === 'WALKING') {
+      return TransportMode.WALKING;
+    }
+
+    if (travelMode === 'TRANSIT' && vehicleType) {
+      switch (vehicleType.toUpperCase()) {
+        case 'BUS':
+          return TransportMode.BUS;
+        case 'SUBWAY':
+        case 'METRO_RAIL':
+          return TransportMode.METRO;
+        case 'TRAM':
+        case 'LIGHT_RAIL':
+          return TransportMode.TRAM;
+        case 'TRAIN':
+        case 'HEAVY_RAIL':
+        case 'COMMUTER_TRAIN':
+          return TransportMode.ANKARAY; // Ankaray için TRAIN kullan
+        case 'RAIL':
+          return TransportMode.METRO;
+        default:
+          return TransportMode.BUS; // Default
+      }
+    }
+
+    return TransportMode.BUS; // Fallback
+  }
+
+  /**
+   * Toplu taşıma ücreti hesapla
+   */
+  private calculateTransitCost(segments: RouteSegment[]): number {
+    // Ankara kart ücreti
+    const transitSegments = segments.filter(
+      (seg) => seg.mode !== TransportMode.WALKING
+    );
+
+    // Her biniş için 1 Ankara kart (17.70 TL)
+    // Aktarmalar: İlk 45 dakika içinde ücretsiz
+    return transitSegments.length > 0 ? 17.70 : 0;
+  }
+
+  /**
+   * Rotaları sırala (hız, maliyet, aktarma sayısı)
+   */
+  private sortRoutes(
+    routes: RouteOption[],
+    preferences?: RouteRequest['preferences']
+  ): RouteOption[] {
     const sorted = [...routes];
 
+    // Varsayılan: En hızlı rotayı önce göster
+    sorted.sort((a, b) => {
+      // 1. Önce süreye göre
+      const durationDiff = a.totalDuration - b.totalDuration;
+      if (Math.abs(durationDiff) > 300) {
+        // 5 dakikadan fazla fark varsa
+        return durationDiff;
+      }
+
+      // 2. Süre benzer ise aktarma sayısına göre
+      const aTransfers = a.segments.filter((s) => s.mode !== TransportMode.WALKING).length;
+      const bTransfers = b.segments.filter((s) => s.mode !== TransportMode.WALKING).length;
+      return aTransfers - bTransfers;
+    });
+
+    // En hızlı rotayı işaretle
+    if (sorted[0]) {
+      sorted[0].isFastest = true;
+    }
+
+    // Preferences varsa özel sıralama
     if (preferences?.preferFastest) {
       sorted.sort((a, b) => a.totalDuration - b.totalDuration);
-      if (sorted[0]) sorted[0].isFastest = true;
     }
 
     if (preferences?.preferCheapest) {
       sorted.sort((a, b) => (a.totalCost || 0) - (b.totalCost || 0));
-      if (sorted[0]) sorted[0].isCheapest = true;
     }
 
     return sorted;
@@ -292,8 +259,9 @@ class RouteService {
    * Cache key oluştur
    */
   private generateCacheKey(request: RouteRequest): string {
-    const { origin, destination, modes } = request;
-    return `route:${origin.lat},${origin.lng}:${destination.lat},${destination.lng}:${modes.join(',')}`;
+    const { origin, destination, departureTime } = request;
+    const timeKey = departureTime ? departureTime.getTime() : 'now';
+    return `transit:${origin.lat},${origin.lng}:${destination.lat},${destination.lng}:${timeKey}`;
   }
 
   /**
@@ -326,7 +294,7 @@ class RouteService {
    * Benzersiz rota ID oluştur
    */
   private generateRouteId(): string {
-    return `route_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `route_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
   }
 }
 

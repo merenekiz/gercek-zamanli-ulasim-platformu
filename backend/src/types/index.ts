@@ -201,6 +201,7 @@ export interface RouteRequest {
   destination: Location;
   modes: TransportMode[];
   departureTime?: Date;
+  userId?: string; // Rate limiting için
   preferences?: {
     maxWalkingDistance?: number;
     maxTransfers?: number;
@@ -220,9 +221,19 @@ export interface RouteSegment {
   routeInfo?: {
     routeId?: string;
     routeName?: string;
+    routeLongName?: string; // Uzun hat adı
+    routeColor?: string; // Hat rengi (hex)
+    routeTextColor?: string; // Yazı rengi (hex)
+    vehicleType?: string; // BUS, SUBWAY, TRAM, TRAIN
+    vehicleName?: string; // Araç adı
+    vehicleIcon?: string; // Icon URL
+    departureStop?: string; // Biniş durağı
+    arrivalStop?: string; // İniş durağı
     departureTime?: Date;
     arrivalTime?: Date;
     stops?: number;
+    headsign?: string; // Hat yönü
+    agency?: string; // İşletmeci (EGO, İETT vb.)
   };
   polyline?: string;
 }

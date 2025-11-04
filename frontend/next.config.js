@@ -36,7 +36,8 @@ const nextConfig = {
 
   // Performans optimizasyonları
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    // Console logları development için bırak
+    removeConsole: false,
   },
 
   // PWA desteği için gelecek konfigürasyon

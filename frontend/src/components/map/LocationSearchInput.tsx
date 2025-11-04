@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Search, MapPin, Loader2, X } from 'lucide-react';
-import axios from 'axios';
+import { Loader } from '@googlemaps/js-api-loader';
 
 interface Location {
   lat: number;
   lng: number;
   display_name: string;
+  place_id: string;
 }
 
 interface LocationSearchInputProps {
@@ -22,7 +23,7 @@ interface LocationSearchInputProps {
 /**
  * LocationSearchInput Component
  *
- * Autocomplete input for location search using Nominatim API
+ * Autocomplete input for location search using Google Places API
  *
  * @example
  * <LocationSearchInput
@@ -44,9 +45,42 @@ export default function LocationSearchInput({
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [googleLoaded, setGoogleLoaded] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+
+  // Initialize Google Places API
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+    console.log('[LocationSearchInput] Initializing... API Key:', apiKey ? 'Var' : 'Yok');
+
+    if (!apiKey) {
+      console.error('[LocationSearchInput] Google Maps API key bulunamadı');
+      return;
+    }
+
+    const loader = new Loader({
+      apiKey,
+      version: 'weekly',
+      libraries: ['places', 'geocoding'],
+    });
+
+    console.log('[LocationSearchInput] Google API yükleniyor...');
+
+    loader
+      .load()
+      .then(() => {
+        console.log('[LocationSearchInput] Google API yüklendi!');
+        geocoderRef.current = new google.maps.Geocoder();
+        setGoogleLoaded(true);
+      })
+      .catch((error) => {
+        console.error('[LocationSearchInput] Google Places API yükleme hatası:', error);
+      });
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -65,9 +99,9 @@ export default function LocationSearchInput({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Search locations with Nominatim API
+  // Search locations with Google Geocoding API (simpler, no extra permissions needed)
   const searchLocations = async (searchQuery: string) => {
-    if (!searchQuery || searchQuery.length < 3) {
+    if (!searchQuery || searchQuery.length < 2 || !googleLoaded || !geocoderRef.current) {
       setResults([]);
       return;
     }
@@ -75,34 +109,40 @@ export default function LocationSearchInput({
     setLoading(true);
 
     try {
-      const response = await axios.get(
-        'https://nominatim.openstreetmap.org/search',
+      console.log('[LocationSearchInput] Searching for:', searchQuery);
+
+      // Use Geocoding API for address search
+      geocoderRef.current.geocode(
         {
-          params: {
-            q: `${searchQuery}, Ankara, Turkey`,
-            format: 'json',
-            addressdetails: 1,
-            limit: 5,
-            countrycodes: 'tr',
-          },
-          headers: {
-            'User-Agent': 'AnkaraUlasimPlatformu/1.0',
-          },
+          address: searchQuery,
+          region: 'tr', // Turkey
+          language: 'tr',
+        },
+        (results, status) => {
+          console.log('[LocationSearchInput] Geocode status:', status);
+
+          if (status === google.maps.GeocoderStatus.OK && results && results.length > 0) {
+            const locations: Location[] = results.slice(0, 5).map((result) => ({
+              lat: result.geometry.location.lat(),
+              lng: result.geometry.location.lng(),
+              display_name: result.formatted_address,
+              place_id: result.place_id || '',
+            }));
+
+            console.log('[LocationSearchInput] Found locations:', locations.length);
+            setResults(locations);
+            setShowDropdown(true);
+          } else {
+            console.log('[LocationSearchInput] No results found');
+            setResults([]);
+          }
+
+          setLoading(false);
         }
       );
-
-      const locations: Location[] = response.data.map((item: any) => ({
-        lat: parseFloat(item.lat),
-        lng: parseFloat(item.lon),
-        display_name: item.display_name,
-      }));
-
-      setResults(locations);
-      setShowDropdown(true);
     } catch (error) {
-      console.error('Geocoding error:', error);
+      console.error('[LocationSearchInput] Geocoding search error:', error);
       setResults([]);
-    } finally {
       setLoading(false);
     }
   };
@@ -121,15 +161,19 @@ export default function LocationSearchInput({
     // Set new timer
     debounceTimerRef.current = setTimeout(() => {
       searchLocations(newQuery);
-    }, 500);
+    }, 300);
   };
 
   // Handle location selection
-  const handleLocationSelect = (location: Location) => {
+  const handleLocationSelect = async (location: Location) => {
+    console.log('[LocationSearchInput] Location selected:', location);
+
     setQuery(location.display_name);
-    setSelectedLocation(location);
     setShowDropdown(false);
     setResults([]);
+
+    // Coordinates are already in the location object from geocoding
+    setSelectedLocation(location);
     onLocationSelect(location);
   };
 
@@ -147,15 +191,15 @@ export default function LocationSearchInput({
   return (
     <div className="relative w-full">
       {label && (
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
           {label}
         </label>
       )}
 
-      <div className="relative">
+      <div className="relative group">
         {/* Search Icon */}
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+          <Search className="h-5 w-5 text-gray-400 dark:text-gray-500 group-focus-within:text-primary transition-colors duration-300" />
         </div>
 
         {/* Input */}
@@ -165,28 +209,29 @@ export default function LocationSearchInput({
           value={query}
           onChange={handleInputChange}
           placeholder={placeholder}
-          disabled={disabled}
+          disabled={disabled || !googleLoaded}
           className={`
-            block w-full pl-10 pr-10 py-2.5
-            border rounded-lg
-            bg-white dark:bg-gray-700
+            block w-full pl-10 pr-10 py-3
+            border-2 rounded-xl transition-all duration-300
+            bg-white dark:bg-gray-800
             text-gray-900 dark:text-white
             placeholder:text-gray-400 dark:placeholder:text-gray-500
-            focus:ring-2 focus:ring-primary-500 focus:border-transparent
-            disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed
-            ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}
+            focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
+            hover:border-gray-400 dark:hover:border-gray-500
+            disabled:bg-gray-50 dark:disabled:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-60
+            ${error ? 'border-warning focus:ring-warning/20 focus:border-warning' : 'border-gray-200 dark:border-gray-700'}
           `}
         />
 
         {/* Loading/Clear Icon */}
-        <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+        <div className="absolute inset-y-0 right-0 pr-3 flex items-center z-10">
           {loading ? (
             <Loader2 className="h-5 w-5 text-gray-400 dark:text-gray-500 animate-spin" />
           ) : query ? (
             <button
               type="button"
               onClick={handleClear}
-              className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+              className="text-gray-400 dark:text-gray-500 hover:text-primary dark:hover:text-primary-400 transition-colors duration-300 hover:scale-110 transition-transform"
             >
               <X className="h-5 w-5" />
             </button>
@@ -196,28 +241,35 @@ export default function LocationSearchInput({
 
       {/* Error Message */}
       {error && (
-        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>
+        <p className="mt-2 text-sm text-warning font-medium animate-fade-in">{error}</p>
+      )}
+
+      {/* API Key Warning */}
+      {!googleLoaded && (
+        <p className="mt-2 text-sm text-yellow-600 dark:text-yellow-400">
+          Google Maps yükleniyor...
+        </p>
       )}
 
       {/* Dropdown Results */}
       {showDropdown && results.length > 0 && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-64 overflow-y-auto"
+          className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-80 overflow-y-auto backdrop-blur-lg"
         >
           {results.map((location, index) => (
             <button
-              key={index}
+              key={location.place_id}
               type="button"
               onClick={() => handleLocationSelect(location)}
-              className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-start gap-3 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+              className="w-full px-4 py-3.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-start gap-3 transition-all duration-200 border-b border-gray-100 dark:border-gray-700 last:border-b-0 group"
             >
-              <MapPin className="w-5 h-5 text-primary dark:text-primary-400 mt-0.5 flex-shrink-0" />
+              <MapPin className="w-5 h-5 text-primary dark:text-primary-400 mt-0.5 flex-shrink-0 group-hover:scale-110 transition-transform duration-200" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                   {location.display_name.split(',')[0]}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
                   {location.display_name}
                 </p>
               </div>
@@ -227,10 +279,10 @@ export default function LocationSearchInput({
       )}
 
       {/* No Results */}
-      {showDropdown && !loading && query.length >= 3 && results.length === 0 && (
+      {showDropdown && !loading && query.length >= 2 && results.length === 0 && googleLoaded && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-4"
+          className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4"
         >
           <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
             Sonuç bulunamadı

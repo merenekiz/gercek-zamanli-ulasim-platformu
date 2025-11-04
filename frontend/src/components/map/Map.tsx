@@ -1,16 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-
-// Fix Leaflet default icon issue with Next.js
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Loader } from '@googlemaps/js-api-loader';
 
 interface MapProps {
   center?: [number, number];
@@ -18,7 +9,7 @@ interface MapProps {
   markers?: Array<{
     position: [number, number];
     popup?: string;
-    icon?: L.Icon | L.DivIcon;
+    icon?: google.maps.Icon | google.maps.Symbol;
   }>;
   polylines?: Array<{
     positions: [number, number][];
@@ -34,7 +25,7 @@ interface MapProps {
 /**
  * Map Component
  *
- * OpenStreetMap integration using Leaflet
+ * Google Maps integration
  *
  * @example
  * <Map
@@ -54,47 +45,119 @@ export default function Map({
   className = '',
   style = {},
 }: MapProps) {
-  const mapRef = useRef<L.Map | null>(null);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const markersRef = useRef<L.Marker[]>([]);
-  const polylinesRef = useRef<L.Polyline[]>([]);
+  console.log('[Map] Component rendering...', { center, zoom });
 
-  // Initialize map
-  useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
+  const polylinesRef = useRef<google.maps.Polyline[]>([]);
+  const infoWindowsRef = useRef<google.maps.InfoWindow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    // Create map instance
-    const map = L.map(mapContainerRef.current).setView(center, zoom);
+  console.log('[Map] State:', { isLoading, error });
 
-    // Add OpenStreetMap tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(map);
-
-    // Handle map click
-    if (onMapClick) {
-      map.on('click', (e: L.LeafletMouseEvent) => {
-        onMapClick(e.latlng.lat, e.latlng.lng);
-      });
+  // Initialize Google Maps when container ref is set
+  const initializeMap = useCallback((container: HTMLDivElement | null) => {
+    if (!container || mapRef.current) {
+      console.log('[Map] Init skipped:', { hasContainer: !!container, hasMap: !!mapRef.current });
+      return;
     }
 
-    mapRef.current = map;
+    console.log('[Map] Initializing map with container...');
 
-    // Cleanup
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
-  }, []);
+    // Store container ref for later use
+    mapContainerRef.current = container;
+
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+    console.log('[Map] Google Maps API Key:', apiKey ? 'Var' : 'Yok');
+
+    if (!apiKey) {
+      console.error('Google Maps API key bulunamadı!');
+      setError('Google Maps API key bulunamadı');
+      setIsLoading(false);
+      return;
+    }
+
+    // Timeout after 15 seconds
+    const timeoutId = setTimeout(() => {
+      console.error('Google Maps yükleme timeout');
+      setError('Harita yükleme zaman aşımına uğradı');
+      setIsLoading(false);
+    }, 15000);
+
+    const loader = new Loader({
+      apiKey,
+      version: 'weekly',
+      libraries: ['places', 'geometry'],
+    });
+
+    console.log('[Map] Google Maps yükleniyor...');
+
+    loader
+      .load()
+      .then(() => {
+        clearTimeout(timeoutId);
+        console.log('[Map] Google Maps API yüklendi!');
+
+        if (!container) {
+          console.error('[Map] Map container bulunamadı');
+          return;
+        }
+
+        console.log('[Map] Harita oluşturuluyor...');
+
+        // Create map instance
+        const map = new google.maps.Map(container, {
+          center: { lat: center[0], lng: center[1] },
+          zoom,
+          mapTypeControl: true,
+          streetViewControl: true,
+          fullscreenControl: true,
+          zoomControl: true,
+          styles: [
+            {
+              featureType: 'poi',
+              elementType: 'labels',
+              stylers: [{ visibility: 'on' }],
+            },
+            {
+              featureType: 'transit',
+              elementType: 'labels',
+              stylers: [{ visibility: 'on' }],
+            },
+          ],
+        });
+
+        console.log('[Map] Harita oluşturuldu!');
+
+        // Handle map click
+        if (onMapClick) {
+          map.addListener('click', (e: google.maps.MapMouseEvent) => {
+            if (e.latLng) {
+              onMapClick(e.latLng.lat(), e.latLng.lng());
+            }
+          });
+        }
+
+        mapRef.current = map;
+        setIsLoading(false);
+        console.log('[Map] Harita hazır!');
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        console.error('[Map] Google Maps yükleme hatası:', error);
+        setError(`Harita yüklenemedi: ${error.message || 'Bilinmeyen hata'}`);
+        setIsLoading(false);
+      });
+  }, [center, zoom, onMapClick]); // Re-run if these props change
 
   // Update center and zoom
   useEffect(() => {
     if (mapRef.current) {
-      mapRef.current.setView(center, zoom);
+      mapRef.current.setCenter({ lat: center[0], lng: center[1] });
+      mapRef.current.setZoom(zoom);
     }
   }, [center, zoom]);
 
@@ -102,18 +165,33 @@ export default function Map({
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Remove old markers
-    markersRef.current.forEach((marker) => marker.remove());
+    // Remove old markers and info windows
+    markersRef.current.forEach((marker) => marker.setMap(null));
+    infoWindowsRef.current.forEach((infoWindow) => infoWindow.close());
     markersRef.current = [];
+    infoWindowsRef.current = [];
 
     // Add new markers
     markers.forEach(({ position, popup, icon }) => {
-      const marker = L.marker(position, icon ? { icon } : undefined).addTo(
-        mapRef.current!
-      );
+      const marker = new google.maps.Marker({
+        position: { lat: position[0], lng: position[1] },
+        map: mapRef.current!,
+        icon: icon,
+        animation: google.maps.Animation.DROP,
+      });
 
       if (popup) {
-        marker.bindPopup(popup);
+        const infoWindow = new google.maps.InfoWindow({
+          content: popup,
+        });
+
+        marker.addListener('click', () => {
+          // Close all other info windows
+          infoWindowsRef.current.forEach((iw) => iw.close());
+          infoWindow.open(mapRef.current!, marker);
+        });
+
+        infoWindowsRef.current.push(infoWindow);
       }
 
       markersRef.current.push(marker);
@@ -125,33 +203,69 @@ export default function Map({
     if (!mapRef.current) return;
 
     // Remove old polylines
-    polylinesRef.current.forEach((polyline) => polyline.remove());
+    polylinesRef.current.forEach((polyline) => polyline.setMap(null));
     polylinesRef.current = [];
 
     // Add new polylines
-    polylines.forEach(({ positions, color = '#3388ff', weight = 5, opacity = 0.7 }) => {
-      const polyline = L.polyline(positions, {
-        color,
-        weight,
-        opacity,
-      }).addTo(mapRef.current!);
+    polylines.forEach(({ positions, color = '#1E3A5F', weight = 5, opacity = 0.8 }) => {
+      const polyline = new google.maps.Polyline({
+        path: positions.map(([lat, lng]) => ({ lat, lng })),
+        geodesic: true,
+        strokeColor: color,
+        strokeOpacity: opacity,
+        strokeWeight: weight,
+        map: mapRef.current!,
+      });
 
       polylinesRef.current.push(polyline);
     });
 
     // Fit bounds if polylines exist
     if (polylines.length > 0 && polylines[0].positions.length > 0) {
-      const bounds = L.latLngBounds(
-        polylines.flatMap((p) => p.positions)
-      );
-      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+      const bounds = new google.maps.LatLngBounds();
+      polylines.forEach((polyline) => {
+        polyline.positions.forEach(([lat, lng]) => {
+          bounds.extend({ lat, lng });
+        });
+      });
+      mapRef.current.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
     }
   }, [polylines]);
 
+  if (error) {
+    return (
+      <div
+        className={`w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg ${className}`}
+        style={{ minHeight: '400px', ...style }}
+      >
+        <div className="text-center">
+          <p className="text-red-600 dark:text-red-400 font-medium">{error}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            Lütfen Google Maps API key'ini kontrol edin
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div
+        className={`w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg ${className}`}
+        style={{ minHeight: '400px', ...style }}
+      >
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-gray-600 dark:text-gray-400">Harita yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      ref={mapContainerRef}
-      className={`w-full h-full ${className}`}
+      ref={initializeMap}
+      className={`w-full h-full rounded-lg ${className}`}
       style={{ minHeight: '400px', ...style }}
     />
   );

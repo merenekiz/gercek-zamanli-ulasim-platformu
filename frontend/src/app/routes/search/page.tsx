@@ -30,8 +30,14 @@ import Button from '@/components/common/Button';
 import Card from '@/components/common/Card';
 import RouteResults from '@/components/route/RouteResults';
 
-const LocationSearchInput = dynamic(() => import('@/components/map/LocationSearchInput'), { ssr: false });
-const Map = dynamic(() => import('@/components/map/Map'), { ssr: false });
+const LocationSearchInput = dynamic(() => import('@/components/map/LocationSearchInput'), {
+  ssr: false,
+  loading: () => <div className="text-center text-gray-500">Konum arama yükleniyor...</div>
+});
+const Map = dynamic(() => import('@/components/map/Map'), {
+  ssr: false,
+  loading: () => <div className="text-center text-gray-500">Harita yükleniyor...</div>
+});
 
 interface LocationData {
   address: string;
