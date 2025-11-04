@@ -4,6 +4,7 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgis/postgis:15-3.4-alpine
+    platform: linux/amd64
     container_name: gercek-zamanli-ulasim-postgres
     environment:
       POSTGRES_USER: ulasim_admin
@@ -25,6 +26,7 @@ services:
   # MongoDB Database
   mongodb:
     image: mongo:7.0
+    platform: linux/arm64
     container_name: gercek-zamanli-ulasim-mongodb
     environment:
       MONGO_INITDB_ROOT_USERNAME: ulasim_admin
@@ -46,6 +48,7 @@ services:
   # Redis Cache
   redis:
     image: redis:7-alpine
+    platform: linux/arm64
     container_name: gercek-zamanli-ulasim-redis
     ports:
       - "6379:6379"
@@ -78,6 +81,7 @@ services:
       REDIS_PORT: 6379
       JWT_SECRET: gercek_zamanli_ulasim_jwt_secret_2024_change_in_production
       JWT_EXPIRE: 7d
+      GOOGLE_MAPS_API_KEY: AIzaSyAAuuEtefrQhdDrGR5RjwB_3nTX0lnJIZ8
     ports:
       - "5001:5001"
     depends_on:

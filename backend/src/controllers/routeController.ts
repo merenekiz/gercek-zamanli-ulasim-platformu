@@ -15,6 +15,12 @@ export const searchRoutes = async (
   try {
     const requestData: RouteRequest = req.body;
 
+    console.log('[RouteController] Received search request:', {
+      origin: requestData.origin,
+      destination: requestData.destination,
+      modes: requestData.modes,
+    });
+
     // Validation
     if (!requestData.origin || !requestData.destination) {
       throw new AppError('Başlangıç ve varış noktaları zorunludur', 400);

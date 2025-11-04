@@ -112,15 +112,15 @@ export default function RouteResults({
             <div className="flex-1">
               {/* Route Type Badge */}
               <div className="flex items-center gap-2 mb-3 flex-wrap">
-                {Array.from(new Set(route.segments.map(s => s.mode))).map((mode, idx) => (
+                {Array.from(new Set(route.segments?.filter(s => s?.mode).map(s => s.mode) || [])).map((mode, idx) => (
                   <span
                     key={idx}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white shadow-sm border border-white/20 group-hover:scale-105 transition-transform duration-300 ${
-                      transportModeColors[mode as TransportMode]
+                      transportModeColors[mode as TransportMode] || 'bg-gray-500'
                     }`}
                   >
-                    <span>{transportModeIcons[mode as TransportMode]}</span>
-                    <span>{transportModeLabels[mode as TransportMode]}</span>
+                    <span>{transportModeIcons[mode as TransportMode] || '🚶'}</span>
+                    <span>{transportModeLabels[mode as TransportMode] || mode}</span>
                   </span>
                 ))}
               </div>
@@ -168,21 +168,21 @@ export default function RouteResults({
           {/* Route Steps */}
           {route.segments && route.segments.length > 0 && (
             <div className="space-y-2 mb-4">
-              {route.segments.slice(0, 3).map((step, stepIndex) => (
+              {route.segments.slice(0, 3).filter(step => step?.mode).map((step, stepIndex) => (
                 <div
                   key={stepIndex}
                   className="flex items-start gap-3 text-sm"
                 >
                   <div
                     className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium ${
-                      transportModeColors[step.mode as TransportMode]
+                      transportModeColors[step.mode as TransportMode] || 'bg-gray-500'
                     }`}
                   >
                     {stepIndex + 1}
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-gray-900 dark:text-white">
-                      {transportModeLabels[step.mode as TransportMode]}
+                      {transportModeLabels[step.mode as TransportMode] || step.mode}
                       {step.routeInfo?.routeName && ` - ${step.routeInfo.routeName}`}
                     </p>
                     {step.instructions && (
@@ -192,7 +192,7 @@ export default function RouteResults({
                     )}
                   </div>
                   <span className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
-                    {formatDuration(step.duration)}
+                    {formatDuration(step.duration || 0)}
                   </span>
                 </div>
               ))}

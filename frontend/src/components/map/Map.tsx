@@ -59,8 +59,15 @@ export default function Map({
 
   // Initialize Google Maps when container ref is set
   const initializeMap = useCallback((container: HTMLDivElement | null) => {
-    if (!container || mapRef.current) {
-      console.log('[Map] Init skipped:', { hasContainer: !!container, hasMap: !!mapRef.current });
+    console.log('[Map] initializeMap callback çağrıldı', { hasContainer: !!container, hasMap: !!mapRef.current });
+
+    if (!container) {
+      console.log('[Map] Container null, çıkılıyor');
+      return;
+    }
+
+    if (mapRef.current) {
+      console.log('[Map] Map zaten var, çıkılıyor');
       return;
     }
 
@@ -90,7 +97,7 @@ export default function Map({
     const loader = new Loader({
       apiKey,
       version: 'weekly',
-      libraries: ['places', 'geometry'],
+      libraries: ['places', 'geometry', 'geocoding'],
     });
 
     console.log('[Map] Google Maps yükleniyor...');
@@ -106,9 +113,9 @@ export default function Map({
           return;
         }
 
-        console.log('[Map] Harita oluşturuluyor...');
+        console.log('[Map] Harita oluşturuluyor...', { lat: center[0], lng: center[1], zoom });
 
-        // Create map instance
+        // Create map instance with current center and zoom
         const map = new google.maps.Map(container, {
           center: { lat: center[0], lng: center[1] },
           zoom,
@@ -151,7 +158,7 @@ export default function Map({
         setError(`Harita yüklenemedi: ${error.message || 'Bilinmeyen hata'}`);
         setIsLoading(false);
       });
-  }, [center, zoom, onMapClick]); // Re-run if these props change
+  }, []); // Empty dependencies - only create once
 
   // Update center and zoom
   useEffect(() => {
@@ -232,41 +239,36 @@ export default function Map({
     }
   }, [polylines]);
 
-  if (error) {
-    return (
-      <div
-        className={`w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg ${className}`}
-        style={{ minHeight: '400px', ...style }}
-      >
-        <div className="text-center">
-          <p className="text-red-600 dark:text-red-400 font-medium">{error}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-            Lütfen Google Maps API key'ini kontrol edin
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div
-        className={`w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg ${className}`}
-        style={{ minHeight: '400px', ...style }}
-      >
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-gray-600 dark:text-gray-400">Harita yükleniyor...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div
-      ref={initializeMap}
-      className={`w-full h-full rounded-lg ${className}`}
-      style={{ minHeight: '400px', ...style }}
-    />
+    <div className={`w-full h-full relative ${className}`} style={{ minHeight: '400px', ...style }}>
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg z-10">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-gray-600 dark:text-gray-400">Harita yükleniyor...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Error Overlay */}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg z-10">
+          <div className="text-center">
+            <p className="text-red-600 dark:text-red-400 font-medium">{error}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+              Lütfen Google Maps API key'ini kontrol edin
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Map Container - Always rendered so ref callback is called */}
+      <div
+        ref={initializeMap}
+        className="w-full h-full rounded-lg"
+        style={{ minHeight: '400px' }}
+      />
+    </div>
   );
 }

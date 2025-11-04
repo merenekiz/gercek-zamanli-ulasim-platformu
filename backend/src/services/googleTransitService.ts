@@ -22,6 +22,7 @@ interface TransitRouteRequest {
   departureTime?: Date;
   routingPreference?: 'fewer_transfers' | 'less_walking';
   language?: string;
+  allowedModes?: string[]; // Kullanıcının seçtiği ulaşım modları
 }
 
 interface TransitRouteResult {
@@ -31,13 +32,51 @@ interface TransitRouteResult {
 
 export class GoogleTransitService {
   /**
+   * Backend TransportMode'u Google TransitMode'a dönüştür
+   */
+  private static mapTransportModeToGoogleMode(mode: string): TransitMode | null {
+    switch (mode.toUpperCase()) {
+      case 'BUS':
+        return TransitMode.bus;
+      case 'METRO':
+        return TransitMode.subway;
+      case 'ANKARAY':
+        return TransitMode.rail;
+      case 'TRAM':
+        return TransitMode.tram;
+      default:
+        return null;
+    }
+  }
+
+  /**
    * Toplu taşıma rotası hesapla
    */
   static async calculateTransitRoute(request: TransitRouteRequest): Promise<TransitRouteResult> {
-    const { origin, destination, departureTime, routingPreference, language = 'tr' } = request;
+    const { origin, destination, departureTime, routingPreference, language = 'tr', allowedModes } = request;
 
-    // Cache key oluştur
-    const cacheKey = `transit:${origin.lat},${origin.lng}:${destination.lat},${destination.lng}:${departureTime?.getTime() || 'now'}:${routingPreference || 'default'}`;
+    // Kullanıcının seçtiği modları Google Transit Mode'a dönüştür
+    let transitModes: TransitMode[] = [
+      TransitMode.bus,
+      TransitMode.rail,
+      TransitMode.subway,
+      TransitMode.train,
+      TransitMode.tram,
+    ];
+
+    if (allowedModes && allowedModes.length > 0) {
+      const mappedModes = allowedModes
+        .map(mode => this.mapTransportModeToGoogleMode(mode))
+        .filter((mode): mode is TransitMode => mode !== null);
+
+      if (mappedModes.length > 0) {
+        transitModes = mappedModes;
+      }
+    }
+
+    // Cache key oluştur (modları da dahil et)
+    const modesKey = allowedModes?.sort().join(',') || 'all';
+    const cacheKey = `transit:${origin.lat},${origin.lng}:${destination.lat},${destination.lng}:${departureTime?.getTime() || 'now'}:${routingPreference || 'default'}:${modesKey}`;
 
     try {
       // Cache'den kontrol et
@@ -53,13 +92,7 @@ export class GoogleTransitService {
           origin: `${origin.lat},${origin.lng}`,
           destination: `${destination.lat},${destination.lng}`,
           mode: TravelMode.transit,
-          transit_mode: [
-            TransitMode.bus,
-            TransitMode.rail,
-            TransitMode.subway,
-            TransitMode.train,
-            TransitMode.tram,
-          ],
+          transit_mode: transitModes,
           transit_routing_preference: (routingPreference || googleConfig.transitOptions.defaultPreference) as any,
           departure_time: departureTime || new Date(),
           language: language as any,

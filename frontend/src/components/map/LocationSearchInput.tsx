@@ -65,7 +65,7 @@ export default function LocationSearchInput({
     const loader = new Loader({
       apiKey,
       version: 'weekly',
-      libraries: ['places', 'geocoding'],
+      libraries: ['places', 'geometry', 'geocoding'],
     });
 
     console.log('[LocationSearchInput] Google API yükleniyor...');

@@ -63,7 +63,7 @@ class RouteService {
    * Google Transit API ile toplu taşıma rotaları hesapla
    */
   private async calculateTransitRoutes(request: RouteRequest): Promise<RouteOption[]> {
-    const { origin, destination, departureTime, userId } = request;
+    const { origin, destination, departureTime, userId, modes } = request;
 
     // Rate limit kontrolü
     if (userId) {
@@ -79,6 +79,7 @@ class RouteService {
       destination: { lat: destination.lat, lng: destination.lng },
       departureTime,
       language: 'tr',
+      allowedModes: modes, // Kullanıcının seçtiği modları geç
     });
 
     if (!transitResult || transitResult.length === 0) {
@@ -87,9 +88,38 @@ class RouteService {
     }
 
     // Google formatını backend formatına dönüştür
-    const routes: RouteOption[] = transitResult.map((googleRoute) =>
+    let routes: RouteOption[] = transitResult.map((googleRoute) =>
       this.convertGoogleRouteToRouteOption(googleRoute)
     );
+
+    console.log('[RouteService] Total routes before filtering:', routes.length);
+    console.log('[RouteService] User selected modes:', modes);
+
+    // Kullanıcının seçtiği modlara göre filtrele
+    if (modes && modes.length > 0) {
+      const initialCount = routes.length;
+      routes = routes.filter((route) => {
+        // Rotadaki tüm segmentler izin verilen modlardan mı kontrol et
+        const routeModes = route.segments
+          .filter(seg => seg.mode !== TransportMode.WALKING) // Yürümeyi hariç tut
+          .map(seg => seg.mode);
+
+        console.log('[RouteService] Route modes:', routeModes, 'Allowed modes:', modes);
+
+        // Eğer rotada hiç toplu taşıma yoksa (sadece yürüme varsa) ve WALKING seçilmişse kabul et
+        if (routeModes.length === 0 && modes.includes(TransportMode.WALKING)) {
+          console.log('[RouteService] Route accepted: Only walking');
+          return true;
+        }
+
+        // Rotadaki en az bir modun kullanıcının seçtikleri arasında olması gerekir
+        const isAccepted = routeModes.some(mode => modes.includes(mode));
+        console.log('[RouteService] Route accepted:', isAccepted);
+        return isAccepted;
+      });
+
+      console.log('[RouteService] Routes after filtering:', routes.length, 'from', initialCount);
+    }
 
     return routes;
   }

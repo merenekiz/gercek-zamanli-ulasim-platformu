@@ -85,6 +85,11 @@ function RouteSearchContent() {
 
   const selectedModes = watch('modes');
 
+  // Debug: Watch selectedModes changes
+  useEffect(() => {
+    console.log('[RouteSearch] selectedModes changed:', selectedModes);
+  }, [selectedModes]);
+
   // Update map markers when locations change
   useEffect(() => {
     const markers = [];
@@ -103,6 +108,16 @@ function RouteSearchContent() {
     setMapMarkers(markers);
   }, [origin, destination]);
 
+  // Transport mode color mapping for map polylines
+  const transportModeMapColors: Record<string, string> = {
+    BUS: '#3B82F6',      // Blue
+    METRO: '#EF4444',    // Red
+    ANKARAY: '#F97316',  // Orange
+    WALKING: '#22C55E',  // Green
+    TAXI: '#EAB308',     // Yellow
+    RIDESHARE: '#A855F7', // Purple
+  };
+
   // Update map polylines when selected route changes
   useEffect(() => {
     if (!selectedRoute) {
@@ -116,13 +131,18 @@ function RouteSearchContent() {
         try {
           const geometry = JSON.parse(segment.polyline);
           if (geometry.type === 'LineString' && geometry.coordinates) {
-            // Convert GeoJSON coordinates [lng, lat] to Leaflet [lat, lng]
+            // Convert GeoJSON coordinates [lng, lat] to [lat, lng]
             const positions = geometry.coordinates.map((coord: number[]) => [coord[1], coord[0]] as [number, number]);
+
+            // Get color based on transport mode
+            const color = transportModeMapColors[segment.mode as string] || '#6B7280'; // Gray fallback
+            const weight = segment.mode === 'WALKING' ? 3 : 5; // Thinner line for walking
+
             polylines.push({
               positions,
-              color: segment.mode === 'WALKING' ? '#4CAF50' : '#2196F3',
-              weight: 4,
-              opacity: 0.7,
+              color,
+              weight,
+              opacity: 0.8,
             });
           }
         } catch (error) {
@@ -164,13 +184,16 @@ function RouteSearchContent() {
 
   const toggleMode = (mode: TransportMode) => {
     const currentModes = selectedModes || [];
+    console.log('[RouteSearch] Toggling mode:', mode, 'Current modes:', currentModes);
+
     if (currentModes.includes(mode)) {
-      setValue(
-        'modes',
-        currentModes.filter((m) => m !== mode)
-      );
+      const newModes = currentModes.filter((m) => m !== mode);
+      console.log('[RouteSearch] Removing mode. New modes:', newModes);
+      setValue('modes', newModes, { shouldValidate: true });
     } else {
-      setValue('modes', [...currentModes, mode]);
+      const newModes = [...currentModes, mode];
+      console.log('[RouteSearch] Adding mode. New modes:', newModes);
+      setValue('modes', newModes, { shouldValidate: true });
     }
   };
 
@@ -184,6 +207,8 @@ function RouteSearchContent() {
       );
       return;
     }
+
+    console.log('[RouteSearch] Submitting with modes:', data.modes);
 
     try {
       await dispatch(
@@ -216,9 +241,14 @@ function RouteSearchContent() {
   };
 
   const handleRouteSelect = (route: any) => {
+    console.log('[RouteSearch] Route selected:', route.id);
     dispatch(setSelectedRoute(route));
-    // Could navigate to route details page
-    // router.push(`/routes/${route.id}`);
+    dispatch(
+      showToast({
+        message: 'Rota haritada gösteriliyor',
+        type: 'success',
+      })
+    );
   };
 
   return (
