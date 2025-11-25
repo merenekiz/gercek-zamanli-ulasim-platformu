@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   MapPin,
@@ -24,6 +25,49 @@ function DashboardContent() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
+
+  const [totalTrips, setTotalTrips] = useState(0);
+  const [favoriteRoutesCount, setFavoriteRoutesCount] = useState(0);
+  const [savedPlacesCount, setSavedPlacesCount] = useState(0);
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+
+  // Load statistics from localStorage
+  useEffect(() => {
+    // Load favorite routes count
+    const favoriteRoutes = localStorage.getItem('favoriteRoutes');
+    if (favoriteRoutes) {
+      try {
+        const routes = JSON.parse(favoriteRoutes);
+        setFavoriteRoutesCount(routes.length);
+      } catch (error) {
+        console.error('Error loading favorite routes:', error);
+      }
+    }
+
+    // Load trip history count and recent activities
+    const tripHistory = localStorage.getItem('tripHistory');
+    if (tripHistory) {
+      try {
+        const trips = JSON.parse(tripHistory);
+        setTotalTrips(trips.length);
+        // Show last 5 trips as recent activities
+        setRecentActivities(trips.slice(0, 5));
+      } catch (error) {
+        console.error('Error loading trip history:', error);
+      }
+    }
+
+    // Load saved places count
+    const savedPlaces = localStorage.getItem('savedPlaces');
+    if (savedPlaces) {
+      try {
+        const places = JSON.parse(savedPlaces);
+        setSavedPlacesCount(places.length);
+      } catch (error) {
+        console.error('Error loading saved places:', error);
+      }
+    }
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -54,6 +98,13 @@ function DashboardContent() {
       href: '/routes/search',
     },
     {
+      icon: MapPin,
+      title: 'Kayıtlı Yerler',
+      description: 'Sık kullandığınız yerlere hızlıca erişin',
+      color: 'bg-indigo-500',
+      href: '/places',
+    },
+    {
       icon: Navigation,
       title: 'Yakınımdaki Duraklar',
       description: 'Etrafınızdaki toplu taşıma duraklarını görün',
@@ -77,9 +128,9 @@ function DashboardContent() {
   ];
 
   const stats = [
-    { label: 'Toplam Seyahat', value: '0', icon: Bus, color: 'text-blue-600' },
-    { label: 'Favori Rotalar', value: '0', icon: Heart, color: 'text-red-600' },
-    { label: 'Kayıtlı Yerler', value: '0', icon: MapPin, color: 'text-green-600' },
+    { label: 'Toplam Seyahat', value: totalTrips.toString(), icon: Bus, color: 'text-blue-600', href: '/history' },
+    { label: 'Favori Rotalar', value: favoriteRoutesCount.toString(), icon: Heart, color: 'text-red-600', href: '/favorites' },
+    { label: 'Kayıtlı Yerler', value: savedPlacesCount.toString(), icon: MapPin, color: 'text-green-600', href: '/places' },
   ];
 
   return (
@@ -148,7 +199,11 @@ function DashboardContent() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           {stats.map((stat) => (
-            <Card key={stat.label} className="p-6">
+            <Card
+              key={stat.label}
+              className="p-6 cursor-pointer transition-all hover:scale-105"
+              onClick={() => router.push(stat.href)}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
@@ -171,7 +226,7 @@ function DashboardContent() {
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Hızlı İşlemler
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {quickActions.map((action) => (
               <Card
                 key={action.title}
@@ -194,28 +249,82 @@ function DashboardContent() {
 
         {/* Recent Activity */}
         <div>
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-            Son Aktiviteler
-          </h3>
-          <Card className="p-8">
-            <div className="text-center text-gray-500 dark:text-gray-400">
-              <Clock className="w-12 h-12 mx-auto mb-3 text-gray-400 dark:text-gray-500" />
-              <p className="text-lg font-medium mb-2">
-                Henüz aktivite bulunmuyor
-              </p>
-              <p className="text-sm mb-6">
-                Rota aramaya başlayarak seyahat geçmişinizi oluşturun
-              </p>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Son Aktiviteler
+            </h3>
+            {recentActivities.length > 0 && (
               <Button
-                variant="primary"
-                onClick={() => router.push('/routes/search')}
-                className="flex items-center gap-2"
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/history')}
               >
-                <Search className="w-4 h-4" />
-                Rota Ara
+                Tümünü Gör
               </Button>
-            </div>
-          </Card>
+            )}
+          </div>
+
+          {recentActivities.length === 0 ? (
+            <Card className="p-8">
+              <div className="text-center text-gray-500 dark:text-gray-400">
+                <Clock className="w-12 h-12 mx-auto mb-3 text-gray-400 dark:text-gray-500" />
+                <p className="text-lg font-medium mb-2">
+                  Henüz aktivite bulunmuyor
+                </p>
+                <p className="text-sm mb-6">
+                  Rota aramaya başlayarak seyahat geçmişinizi oluşturun
+                </p>
+                <Button
+                  variant="primary"
+                  onClick={() => router.push('/routes/search')}
+                  className="flex items-center gap-2"
+                >
+                  <Search className="w-4 h-4" />
+                  Rota Ara
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <Card className="p-6">
+              <div className="space-y-4">
+                {recentActivities.map((activity) => (
+                  <div
+                    key={activity.id}
+                    className="flex items-start gap-4 p-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                    onClick={() => router.push('/history')}
+                  >
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 bg-primary/10 dark:bg-primary/20 rounded-full flex items-center justify-center">
+                        <Navigation className="w-5 h-5 text-primary dark:text-primary-400" />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <MapPin className="w-4 h-4 text-green-500" />
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {activity.origin?.address?.split(',')[0] || 'Bilinmeyen'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <MapPin className="w-4 h-4 text-red-500" />
+                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                          {activity.destination?.address?.split(',')[0] || 'Bilinmeyen'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {activity.time}
+                        </span>
+                        <span>•</span>
+                        <span>{activity.date}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
 
         {/* Help Section */}

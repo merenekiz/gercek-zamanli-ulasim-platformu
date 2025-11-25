@@ -236,6 +236,7 @@ export interface RouteSegment {
     agency?: string; // İşletmeci (EGO, İETT vb.)
   };
   polyline?: string;
+  transitStops?: Array<{ name: string; lat: number; lng: number }>; // Places API'den bulunan duraklar
 }
 
 export interface RouteOption {

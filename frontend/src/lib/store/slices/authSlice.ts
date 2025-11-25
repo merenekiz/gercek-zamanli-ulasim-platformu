@@ -12,11 +12,15 @@ interface AuthState {
   error: string | null;
 }
 
+// Token varsa başlangıçta authenticated olarak kabul et
+const storedAccessToken = storage.get<string>('accessToken');
+const storedRefreshToken = storage.get<string>('refreshToken');
+
 const initialState: AuthState = {
   user: null,
-  accessToken: storage.get<string>('accessToken'),
-  refreshToken: storage.get<string>('refreshToken'),
-  isAuthenticated: false,
+  accessToken: storedAccessToken,
+  refreshToken: storedRefreshToken,
+  isAuthenticated: !!storedAccessToken, // Token varsa authenticated
   loading: false,
   error: null,
 };

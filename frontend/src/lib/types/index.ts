@@ -95,11 +95,22 @@ export interface RouteSegment {
   routeInfo?: {
     routeId?: string;
     routeName?: string;
+    routeLongName?: string;
+    routeColor?: string;
+    routeTextColor?: string;
+    vehicleType?: string;
+    vehicleName?: string;
+    vehicleIcon?: string;
+    departureStop?: string;
+    arrivalStop?: string;
     departureTime?: Date;
     arrivalTime?: Date;
     stops?: number;
+    headsign?: string;
+    agency?: string;
   };
   polyline?: string; // Encoded polyline
+  transitStops?: Array<{ name: string; lat: number; lng: number }>; // Places API'den bulunan duraklar
 }
 
 export interface RouteOption {

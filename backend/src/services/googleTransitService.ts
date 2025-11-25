@@ -292,6 +292,113 @@ export class GoogleTransitService {
   }
 
   /**
+   * Taksi/Araç rotası hesapla (en kısa/en az trafikli yol)
+   */
+  static async calculateDrivingRoute(request: {
+    origin: { lat: number; lng: number };
+    destination: { lat: number; lng: number };
+    departureTime?: Date;
+    language?: string;
+  }): Promise<any | null> {
+    const { origin, destination, departureTime, language = 'tr' } = request;
+
+    // Cache key oluştur
+    const cacheKey = `driving:${origin.lat},${origin.lng}:${destination.lat},${destination.lng}:${departureTime?.getTime() || 'now'}`;
+
+    try {
+      // Cache'den kontrol et
+      const cached = await redisClient.get(cacheKey);
+      if (cached) {
+        logger.info('Driving route returned from cache');
+        return JSON.parse(cached);
+      }
+
+      // Google Directions API isteği - DRIVING mode
+      const directionsRequest: DirectionsRequest = {
+        params: {
+          origin: `${origin.lat},${origin.lng}`,
+          destination: `${destination.lat},${destination.lng}`,
+          mode: TravelMode.driving,
+          departure_time: departureTime || new Date(),
+          traffic_model: 'best_guess' as any, // Trafik tahmini
+          language: language as any,
+          key: googleConfig.apiKey,
+          alternatives: false, // Tek rota yeterli
+        },
+        timeout: googleConfig.timeout.directions,
+      };
+
+      logger.info('Requesting driving route from Google Directions API', {
+        origin,
+        destination,
+      });
+
+      const response = await client.directions(directionsRequest);
+
+      if (response.data.status !== 'OK' || !response.data.routes[0]) {
+        logger.warn('Google Directions API returned non-OK status for driving', {
+          status: response.data.status,
+        });
+        return null;
+      }
+
+      const route = response.data.routes[0];
+      const leg = route.legs[0];
+
+      // Taksi rotası formatla
+      const result = {
+        duration: leg.duration_in_traffic?.value || leg.duration.value, // Trafik dahil süre
+        durationText: leg.duration_in_traffic?.text || leg.duration.text,
+        distance: leg.distance.value,
+        distanceText: leg.distance.text,
+        startAddress: leg.start_address,
+        endAddress: leg.end_address,
+        startLocation: {
+          lat: leg.start_location.lat,
+          lng: leg.start_location.lng,
+        },
+        endLocation: {
+          lat: leg.end_location.lat,
+          lng: leg.end_location.lng,
+        },
+        polyline: route.overview_polyline.points,
+        steps: leg.steps.map((step: any) => ({
+          duration: step.duration.value,
+          distance: step.distance.value,
+          startLocation: {
+            lat: step.start_location.lat,
+            lng: step.start_location.lng,
+          },
+          endLocation: {
+            lat: step.end_location.lat,
+            lng: step.end_location.lng,
+          },
+          travelMode: 'DRIVING',
+          instructions: step.html_instructions.replace(/<[^>]*>/g, ''),
+          polyline: step.polyline?.points,
+        })),
+      };
+
+      // Cache'e kaydet (15 dakika - trafik değişkenliği için daha kısa)
+      await redisClient.setex(cacheKey, 900, JSON.stringify(result));
+
+      logger.info('Driving route calculated successfully', {
+        distance: result.distanceText,
+        duration: result.durationText,
+      });
+
+      return result;
+    } catch (error: any) {
+      logger.error('Error calculating driving route', {
+        error: error.message,
+        origin,
+        destination,
+      });
+      return null;
+    }
+  }
+
+  /**
    * Rate limit kontrolü
    */
   static async checkRateLimit(userId: string): Promise<boolean> {
@@ -323,6 +430,100 @@ export class GoogleTransitService {
     }
 
     return true;
+  }
+
+  /**
+   * Encoded polyline'ı decode et
+   */
+  static decodePolyline(encoded: string): Array<{ lat: number; lng: number }> {
+    const points: Array<{ lat: number; lng: number }> = [];
+    let index = 0;
+    let lat = 0;
+    let lng = 0;
+
+    while (index < encoded.length) {
+      let shift = 0;
+      let result = 0;
+      let byte;
+
+      do {
+        byte = encoded.charCodeAt(index++) - 63;
+        result |= (byte & 0x1f) << shift;
+        shift += 5;
+      } while (byte >= 0x20);
+
+      const dlat = result & 1 ? ~(result >> 1) : result >> 1;
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+
+      do {
+        byte = encoded.charCodeAt(index++) - 63;
+        result |= (byte & 0x1f) << shift;
+        shift += 5;
+      } while (byte >= 0x20);
+
+      const dlng = result & 1 ? ~(result >> 1) : result >> 1;
+      lng += dlng;
+
+      points.push({ lat: lat / 1e5, lng: lng / 1e5 });
+    }
+
+    return points;
+  }
+
+  /**
+   * Polyline boyunca transit durakları bul (Google Places API)
+   */
+  static async findTransitStopsAlongRoute(
+    polyline: string,
+    transportMode: string
+  ): Promise<Array<{ name: string; lat: number; lng: number }>> {
+    try {
+      // Polyline'ı decode et
+      const points = this.decodePolyline(polyline);
+      if (points.length === 0) return [];
+
+      // Polyline boyunca belirli aralıklarla nokta seç (her 5 noktada 1)
+      const samplePoints = points.filter((_, i) => i % 5 === 0);
+      if (samplePoints.length === 0) return [];
+
+      // Orta noktayı al
+      const midIndex = Math.floor(samplePoints.length / 2);
+      const midPoint = samplePoints[midIndex];
+
+      // Places API ile transit durağı ara
+      const response = await client.placesNearby({
+        params: {
+          location: midPoint,
+          radius: 500, // 500 metre yarıçap
+          type: 'transit_station',
+          key: googleConfig.apiKey,
+          language: 'tr' as any,
+        },
+        timeout: 5000,
+      });
+
+      if (response.data.status !== 'OK' || !response.data.results) {
+        return [];
+      }
+
+      // Sonuçları formatla ve polyline'a yakın olanları filtrele
+      const stops = response.data.results
+        .slice(0, 10) // Maksimum 10 durak
+        .map((place: any) => ({
+          name: place.name,
+          lat: place.geometry.location.lat,
+          lng: place.geometry.location.lng,
+        }));
+
+      logger.debug(`Found ${stops.length} transit stops along route`);
+      return stops;
+    } catch (error: any) {
+      logger.error('Error finding transit stops:', error.message);
+      return [];
+    }
   }
 }
 

@@ -19,9 +19,6 @@ import { showToast } from '@/lib/store/slices/uiSlice';
 import {
   routeSearchSchema,
   type RouteSearchFormData,
-  type TransportMode,
-  transportModeLabels,
-  transportModeIcons,
 } from '@/lib/validation/route';
 import { TransportMode as TransportModeEnum } from '@/lib/types';
 import dynamic from 'next/dynamic';
@@ -45,14 +42,6 @@ interface LocationData {
   lng: number;
 }
 
-const transportModes: TransportMode[] = [
-  'BUS',
-  'METRO',
-  'ANKARAY',
-  'WALKING',
-  'TAXI',
-];
-
 function RouteSearchContent() {
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -63,6 +52,52 @@ function RouteSearchContent() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [mapMarkers, setMapMarkers] = useState<any[]>([]);
   const [mapPolylines, setMapPolylines] = useState<any[]>([]);
+  const [favoriteRoutes, setFavoriteRoutes] = useState<any[]>([]);
+  const [busStopIconUrl, setBusStopIconUrl] = useState<string | null>(null);
+
+  // Create bus stop icon with white circle background
+  useEffect(() => {
+    const createBusStopIcon = async () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 28;
+      canvas.height = 28;
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) return;
+
+      // Draw white circle with blue border
+      ctx.fillStyle = 'white';
+      ctx.strokeStyle = '#3B82F6';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(14, 14, 13, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.stroke();
+
+      // Load and draw bus stop PNG
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = '/icons/bus_stop.png';
+      img.onload = () => {
+        ctx.drawImage(img, 6, 6, 16, 16);
+        setBusStopIconUrl(canvas.toDataURL());
+      };
+    };
+
+    createBusStopIcon();
+  }, []);
+
+  // Load favorites from localStorage
+  useEffect(() => {
+    const storedFavorites = localStorage.getItem('favoriteRoutes');
+    if (storedFavorites) {
+      try {
+        setFavoriteRoutes(JSON.parse(storedFavorites));
+      } catch (error) {
+        console.error('Error loading favorites:', error);
+      }
+    }
+  }, []);
 
   const {
     control,
@@ -76,19 +111,12 @@ function RouteSearchContent() {
     defaultValues: {
       origin: '',
       destination: '',
-      modes: ['BUS', 'METRO', 'WALKING'],
+      modes: ['BUS', 'METRO', 'ANKARAY', 'WALKING', 'TAXI'], // Tüm ulaşım türleri
       arriveBy: false,
       maxWalkingDistance: 1000,
       wheelchair: false,
     },
   });
-
-  const selectedModes = watch('modes');
-
-  // Debug: Watch selectedModes changes
-  useEffect(() => {
-    console.log('[RouteSearch] selectedModes changed:', selectedModes);
-  }, [selectedModes]);
 
   // Update map markers when locations change
   useEffect(() => {
@@ -116,27 +144,110 @@ function RouteSearchContent() {
     WALKING: '#22C55E',  // Green
     TAXI: '#EAB308',     // Yellow
     RIDESHARE: '#A855F7', // Purple
+    TRAM: '#8B5CF6',     // Purple
   };
 
-  // Update map polylines when selected route changes
+  // Decode Google encoded polyline to array of [lat, lng] positions
+  const decodePolyline = (encoded: string): [number, number][] => {
+    const points: [number, number][] = [];
+    let index = 0;
+    let lat = 0;
+    let lng = 0;
+
+    while (index < encoded.length) {
+      let shift = 0;
+      let result = 0;
+      let byte;
+
+      // Decode latitude
+      do {
+        byte = encoded.charCodeAt(index++) - 63;
+        result |= (byte & 0x1f) << shift;
+        shift += 5;
+      } while (byte >= 0x20);
+
+      const dlat = result & 1 ? ~(result >> 1) : result >> 1;
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+
+      // Decode longitude
+      do {
+        byte = encoded.charCodeAt(index++) - 63;
+        result |= (byte & 0x1f) << shift;
+        shift += 5;
+      } while (byte >= 0x20);
+
+      const dlng = result & 1 ? ~(result >> 1) : result >> 1;
+      lng += dlng;
+
+      points.push([lat / 1e5, lng / 1e5]);
+    }
+
+    return points;
+  };
+
+  // Transport mode labels for popup
+  const transportModeLabelsMap: Record<string, string> = {
+    BUS: 'Otobüs',
+    METRO: 'Metro',
+    ANKARAY: 'Ankaray',
+    WALKING: 'Yürüyüş',
+    TAXI: 'Taksi',
+    RIDESHARE: 'Paylaşımlı',
+    TRAM: 'Tramvay',
+  };
+
+  // Update map polylines and stop markers when selected route changes
   useEffect(() => {
+    console.log('[RouteSearch] selectedRoute changed:', selectedRoute?.id);
+
     if (!selectedRoute) {
       setMapPolylines([]);
+      // Reset markers to only origin/destination
+      const markers = [];
+      if (origin) {
+        markers.push({
+          position: [origin.lat, origin.lng] as [number, number],
+          popup: `<strong>Başlangıç:</strong><br>${origin.address}`,
+        });
+      }
+      if (destination) {
+        markers.push({
+          position: [destination.lat, destination.lng] as [number, number],
+          popup: `<strong>Varış:</strong><br>${destination.address}`,
+        });
+      }
+      setMapMarkers(markers);
       return;
     }
 
+    console.log('[RouteSearch] Route segments:', selectedRoute.segments?.length);
+
     const polylines = [];
-    for (const segment of selectedRoute.segments) {
+    const stopMarkers: any[] = [];
+
+    // Add origin marker
+    if (origin) {
+      stopMarkers.push({
+        position: [origin.lat, origin.lng] as [number, number],
+        popup: `<strong>Başlangıç:</strong><br>${origin.address}`,
+      });
+    }
+
+    for (const segment of selectedRoute.segments || []) {
+      console.log('[RouteSearch] Segment:', segment.mode, 'polyline:', segment.polyline ? 'exists' : 'missing');
+
+      // Add polyline
       if (segment.polyline) {
         try {
-          const geometry = JSON.parse(segment.polyline);
-          if (geometry.type === 'LineString' && geometry.coordinates) {
-            // Convert GeoJSON coordinates [lng, lat] to [lat, lng]
-            const positions = geometry.coordinates.map((coord: number[]) => [coord[1], coord[0]] as [number, number]);
+          const positions = decodePolyline(segment.polyline);
+          console.log('[RouteSearch] Decoded positions:', positions.length);
 
-            // Get color based on transport mode
-            const color = transportModeMapColors[segment.mode as string] || '#6B7280'; // Gray fallback
-            const weight = segment.mode === 'WALKING' ? 3 : 5; // Thinner line for walking
+          if (positions.length > 0) {
+            const color = transportModeMapColors[segment.mode as string] || '#6B7280';
+            const weight = segment.mode === 'WALKING' ? 3 : 5;
 
             polylines.push({
               positions,
@@ -146,12 +257,104 @@ function RouteSearchContent() {
             });
           }
         } catch (error) {
-          console.error('Error parsing polyline:', error);
+          console.error('[RouteSearch] Error decoding polyline:', error);
+        }
+      }
+
+      // Add stop markers for transit segments (TAXI hariç)
+      if (segment.mode !== 'WALKING' && segment.mode !== 'TAXI' && segment.polyline) {
+        try {
+          const positions = decodePolyline(segment.polyline);
+          const color = transportModeMapColors[segment.mode as string] || '#6B7280';
+          const modeLabel = transportModeLabelsMap[segment.mode as string] || segment.mode;
+          const routeName = segment.routeInfo?.routeName || '';
+          const departureStop = segment.routeInfo?.departureStop || '';
+          const arrivalStop = segment.routeInfo?.arrivalStop || '';
+          const numStops = segment.routeInfo?.stops || 0;
+
+          // Sadece BUS, METRO, ANKARAY için özel ikon kullan
+          const modeIconUrls: Record<string, string> = {
+            BUS: busStopIconUrl || '/icons/bus_stop.png', // Canvas ile oluşturulan icon
+            METRO: '/icons/metro_stop.png',
+            ANKARAY: '/icons/ankaray_stop.png',
+          };
+          const iconUrl = modeIconUrls[segment.mode as string];
+
+          // İkon varsa (BUS, METRO, ANKARAY) görsel kullan, yoksa renkli daire
+          let markerIcon;
+          if (iconUrl) {
+            markerIcon = {
+              url: iconUrl,
+              scaledSize: segment.mode === 'BUS' ? { width: 28, height: 28 } : { width: 18, height: 18 },
+              anchor: segment.mode === 'BUS' ? { x: 14, y: 14 } : { x: 9, y: 9 },
+            };
+          } else {
+            markerIcon = {
+              path: 0, // google.maps.SymbolPath.CIRCLE
+              scale: 6,
+              fillColor: color,
+              fillOpacity: 1,
+              strokeColor: '#FFFFFF',
+              strokeWeight: 2,
+            };
+          }
+
+          // API'den gelen durak sayısına göre tüm durakları ekle
+          const totalStops = numStops > 0 ? numStops : 2; // En az 2 durak (biniş-iniş)
+
+          if (positions.length > 0 && totalStops > 0) {
+            // Durakları polyline boyunca eşit aralıklarla yerleştir
+            const interval = positions.length / totalStops;
+
+            for (let i = 0; i < totalStops; i++) {
+              const posIndex = Math.min(Math.floor(i * interval), positions.length - 1);
+              const pos = positions[posIndex];
+              const isFirst = i === 0;
+              const isLast = i === totalStops - 1;
+
+              // Popup içeriği - sadece API'den gelen bilgileri göster
+              let popupContent = `<div style="min-width: 140px; padding: 8px;">
+                <div style="font-weight: bold; color: ${color}; font-size: 13px; margin-bottom: 4px;">
+                  ${modeLabel}${routeName ? ` - ${routeName}` : ''}
+                </div>`;
+
+              if (isFirst && departureStop) {
+                popupContent += `<div style="font-size: 12px; color: #333;">${departureStop}</div>`;
+              } else if (isLast && arrivalStop) {
+                popupContent += `<div style="font-size: 12px; color: #333;">${arrivalStop}</div>`;
+              } else {
+                popupContent += `<div style="font-size: 11px; color: #666;">Durak ${i + 1}/${totalStops}</div>`;
+              }
+
+              popupContent += '</div>';
+
+              stopMarkers.push({
+                position: pos,
+                popup: popupContent,
+                icon: markerIcon,
+              });
+            }
+          }
+        } catch (error) {
+          console.error('[RouteSearch] Error adding stop markers:', error);
         }
       }
     }
+
+    // Add destination marker
+    if (destination) {
+      stopMarkers.push({
+        position: [destination.lat, destination.lng] as [number, number],
+        popup: `<strong>Varış:</strong><br>${destination.address}`,
+      });
+    }
+
+    console.log('[RouteSearch] Total polylines created:', polylines.length);
+    console.log('[RouteSearch] Total stop markers created:', stopMarkers.length);
+
     setMapPolylines(polylines);
-  }, [selectedRoute]);
+    setMapMarkers(stopMarkers);
+  }, [selectedRoute, origin, destination]);
 
   const handleOriginSelect = (location: any) => {
     setOrigin({
@@ -182,21 +385,6 @@ function RouteSearchContent() {
     setValue('destination', tempOrigin?.address || '');
   };
 
-  const toggleMode = (mode: TransportMode) => {
-    const currentModes = selectedModes || [];
-    console.log('[RouteSearch] Toggling mode:', mode, 'Current modes:', currentModes);
-
-    if (currentModes.includes(mode)) {
-      const newModes = currentModes.filter((m) => m !== mode);
-      console.log('[RouteSearch] Removing mode. New modes:', newModes);
-      setValue('modes', newModes, { shouldValidate: true });
-    } else {
-      const newModes = [...currentModes, mode];
-      console.log('[RouteSearch] Adding mode. New modes:', newModes);
-      setValue('modes', newModes, { shouldValidate: true });
-    }
-  };
-
   const onSubmit = async (data: RouteSearchFormData) => {
     if (!origin || !destination) {
       dispatch(
@@ -207,8 +395,6 @@ function RouteSearchContent() {
       );
       return;
     }
-
-    console.log('[RouteSearch] Submitting with modes:', data.modes);
 
     try {
       await dispatch(
@@ -243,12 +429,89 @@ function RouteSearchContent() {
   const handleRouteSelect = (route: any) => {
     console.log('[RouteSearch] Route selected:', route.id);
     dispatch(setSelectedRoute(route));
+
+    // Save to trip history only if origin and destination exist
+    if (origin && destination) {
+      const tripData = {
+        id: `trip_${Date.now()}`,
+        route,
+        origin: {
+          address: origin.address,
+          lat: origin.lat,
+          lng: origin.lng,
+        },
+        destination: {
+          address: destination.address,
+          lat: destination.lat,
+          lng: destination.lng,
+        },
+        timestamp: new Date().toISOString(),
+        date: new Date().toLocaleDateString('tr-TR'),
+        time: new Date().toLocaleTimeString('tr-TR'),
+      };
+
+      // Get existing trip history
+      const existingHistory = localStorage.getItem('tripHistory');
+      let tripHistory = [];
+      if (existingHistory) {
+        try {
+          tripHistory = JSON.parse(existingHistory);
+        } catch (error) {
+          console.error('Error parsing trip history:', error);
+        }
+      }
+
+      // Add new trip to history (keep last 50 trips)
+      tripHistory.unshift(tripData);
+      if (tripHistory.length > 50) {
+        tripHistory = tripHistory.slice(0, 50);
+      }
+
+      // Save to localStorage
+      localStorage.setItem('tripHistory', JSON.stringify(tripHistory));
+    }
+
     dispatch(
       showToast({
         message: 'Rota haritada gösteriliyor',
         type: 'success',
       })
     );
+  };
+
+  const handleSaveToFavorites = (route: any) => {
+    const routeId = route.id || '';
+    const isFavorite = favoriteRoutes.some((fav) => fav.id === routeId);
+
+    let updatedFavorites;
+    if (isFavorite) {
+      // Remove from favorites
+      updatedFavorites = favoriteRoutes.filter((fav) => fav.id !== routeId);
+      dispatch(
+        showToast({
+          message: 'Rota favorilerden çıkarıldı',
+          type: 'success',
+        })
+      );
+    } else {
+      // Add to favorites with metadata
+      const favoriteRoute = {
+        ...route,
+        origin,
+        destination,
+        savedAt: new Date().toISOString(),
+      };
+      updatedFavorites = [...favoriteRoutes, favoriteRoute];
+      dispatch(
+        showToast({
+          message: 'Rota favorilere eklendi',
+          type: 'success',
+        })
+      );
+    }
+
+    setFavoriteRoutes(updatedFavorites);
+    localStorage.setItem('favoriteRoutes', JSON.stringify(updatedFavorites));
   };
 
   return (
@@ -310,40 +573,6 @@ function RouteSearchContent() {
                   onLocationSelect={handleDestinationSelect}
                   error={errors.destination?.message}
                 />
-
-                {/* Transport Modes */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                    🚌 Ulaşım Türleri
-                  </label>
-                  <div className="flex flex-wrap gap-3">
-                    {transportModes.map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => toggleMode(mode)}
-                        className={`
-                          px-4 py-2.5 rounded-xl text-sm font-semibold
-                          transition-all duration-300 flex items-center gap-2
-                          border-2 shadow-sm hover:shadow-md hover:scale-105
-                          ${
-                            selectedModes?.includes(mode)
-                              ? 'bg-gradient-primary text-white border-primary-600 dark:border-primary-400 shadow-primary/20 scale-105'
-                              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-primary/40 dark:hover:border-primary/40'
-                          }
-                        `}
-                      >
-                        <span className="text-base">{transportModeIcons[mode]}</span>
-                        <span>{transportModeLabels[mode]}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {errors.modes && (
-                    <p className="mt-2 text-sm text-warning font-medium animate-fade-in">
-                      {errors.modes.message}
-                    </p>
-                  )}
-                </div>
 
                 {/* Advanced Options Toggle */}
                 <button
@@ -433,6 +662,8 @@ function RouteSearchContent() {
                 <RouteResults
                   routes={routes}
                   onRouteSelect={handleRouteSelect}
+                  onSaveToFavorites={handleSaveToFavorites}
+                  favoriteRouteIds={favoriteRoutes.map((fav) => fav.id)}
                   loading={loading}
                 />
               </div>

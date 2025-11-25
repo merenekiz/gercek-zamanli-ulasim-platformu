@@ -1,6 +1,7 @@
 'use client';
 
-import { Clock, Navigation, DollarSign, Heart, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { Clock, Navigation, DollarSign, Heart, ChevronRight, ChevronDown } from 'lucide-react';
 import { RouteOption } from '@/lib/types';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
@@ -15,6 +16,7 @@ interface RouteResultsProps {
   routes: RouteOption[];
   onRouteSelect: (route: RouteOption) => void;
   onSaveToFavorites?: (route: RouteOption) => void;
+  favoriteRouteIds?: string[];
   loading?: boolean;
 }
 
@@ -33,8 +35,25 @@ export default function RouteResults({
   routes,
   onRouteSelect,
   onSaveToFavorites,
+  favoriteRouteIds = [],
   loading = false,
 }: RouteResultsProps) {
+  const [expandedRouteId, setExpandedRouteId] = useState<string | null>(null);
+
+  const handleToggleExpand = (route: RouteOption, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const routeId = route.id || '';
+
+    if (expandedRouteId === routeId) {
+      // Collapse if already expanded
+      setExpandedRouteId(null);
+    } else {
+      // Expand and show on map
+      setExpandedRouteId(routeId);
+      onRouteSelect(route);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -101,10 +120,30 @@ export default function RouteResults({
         >
           {/* Best Route Badge */}
           {index === 0 && (
-            <div className="absolute -top-3 left-6 px-4 py-1.5 bg-gradient-success text-white text-xs font-bold rounded-full shadow-lg flex items-center gap-1.5 z-10 animate-float">
+            <div className="absolute -top-2 left-6 px-3 py-1 bg-gradient-success text-white text-xs font-bold rounded-full shadow-lg flex items-center gap-1 z-10">
               <span>⭐</span>
               <span>Önerilen Rota</span>
             </div>
+          )}
+
+          {/* Favorite Button - Top Right */}
+          {onSaveToFavorites && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSaveToFavorites(route);
+              }}
+              className="absolute top-4 right-4 p-2 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 z-20 group/heart"
+              title={favoriteRouteIds.includes(route.id || '') ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+            >
+              <Heart
+                className={`w-5 h-5 text-red-500 transition-all duration-300 ${
+                  favoriteRouteIds.includes(route.id || '')
+                    ? 'fill-red-500'
+                    : 'group-hover/heart:fill-red-500'
+                }`}
+              />
+            </button>
           )}
 
           {/* Route Header */}
@@ -147,69 +186,83 @@ export default function RouteResults({
                 )}
               </div>
             </div>
-
-            {/* Favorite Button */}
-            {onSaveToFavorites && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSaveToFavorites(route);
-                }}
-                className="flex items-center gap-2"
-              >
-                <Heart className="w-4 h-4" />
-                Kaydet
-              </Button>
-            )}
           </div>
 
           {/* Route Steps */}
           {route.segments && route.segments.length > 0 && (
             <div className="space-y-2 mb-4">
-              {route.segments.slice(0, 3).filter(step => step?.mode).map((step, stepIndex) => (
-                <div
-                  key={stepIndex}
-                  className="flex items-start gap-3 text-sm"
-                >
-                  <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium ${
-                      transportModeColors[step.mode as TransportMode] || 'bg-gray-500'
-                    }`}
-                  >
-                    {stepIndex + 1}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {transportModeLabels[step.mode as TransportMode] || step.mode}
-                      {step.routeInfo?.routeName && ` - ${step.routeInfo.routeName}`}
-                    </p>
-                    {step.instructions && (
-                      <p className="text-gray-600 dark:text-gray-400 text-xs mt-0.5">
-                        {step.instructions}
+              {(() => {
+                const isExpanded = expandedRouteId === (route.id || '');
+                const segmentsToShow = isExpanded
+                  ? route.segments.filter(step => step?.mode)
+                  : route.segments.slice(0, 3).filter(step => step?.mode);
+
+                return (
+                  <>
+                    {segmentsToShow.map((step, stepIndex) => (
+                      <div
+                        key={stepIndex}
+                        className={`flex items-start gap-3 text-sm ${
+                          isExpanded && stepIndex >= 3 ? 'animate-fade-in' : ''
+                        }`}
+                      >
+                        <div
+                          className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium ${
+                            transportModeColors[step.mode as TransportMode] || 'bg-gray-500'
+                          }`}
+                        >
+                          {stepIndex + 1}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {transportModeLabels[step.mode as TransportMode] || step.mode}
+                            {step.routeInfo?.routeName && ` - ${step.routeInfo.routeName}`}
+                          </p>
+                          {step.instructions && (
+                            <p className="text-gray-600 dark:text-gray-400 text-xs mt-0.5">
+                              {step.instructions}
+                            </p>
+                          )}
+                          {isExpanded && step.routeInfo && step.routeInfo.stops && (
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              {step.routeInfo.stops} durak
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
+                          {formatDuration(step.duration || 0)}
+                        </span>
+                      </div>
+                    ))}
+
+                    {!isExpanded && route.segments.length > 3 && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 pl-9">
+                        +{route.segments.length - 3} adım daha
                       </p>
                     )}
-                  </div>
-                  <span className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
-                    {formatDuration(step.duration || 0)}
-                  </span>
-                </div>
-              ))}
-
-              {route.segments.length > 3 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 pl-9">
-                  +{route.segments.length - 3} adım daha
-                </p>
-              )}
+                  </>
+                );
+              })()}
             </div>
           )}
 
           {/* View Details Button */}
           <div className="flex justify-end pt-3 border-t border-gray-100 dark:border-gray-700">
-            <button className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 transition-colors">
-              Detayları Görüntüle
-              <ChevronRight className="w-4 h-4" />
+            <button
+              onClick={(e) => handleToggleExpand(route, e)}
+              className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 transition-colors"
+            >
+              {expandedRouteId === (route.id || '') ? (
+                <>
+                  Daralt
+                  <ChevronDown className="w-4 h-4 rotate-180 transition-transform" />
+                </>
+              ) : (
+                <>
+                  Detayları Görüntüle
+                  <ChevronDown className="w-4 h-4 transition-transform" />
+                </>
+              )}
             </button>
           </div>
         </Card>

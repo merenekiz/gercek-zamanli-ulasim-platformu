@@ -6,7 +6,6 @@ import {
   MapPin,
   Navigation as NavigationIcon,
   Search,
-  Filter,
   Bus,
   X,
   Loader2,
@@ -18,20 +17,10 @@ import Card from '@/components/common/Card';
 import Input from '@/components/common/Input';
 import { useAppDispatch } from '@/lib/store/hooks';
 import { showToast } from '@/lib/store/slices/uiSlice';
+import { loadStops } from '@/lib/data/stopsLoader';
+import { getNearbyStops, searchStops, Stop } from '@/lib/utils/stopsParser';
 
 const Map = dynamic(() => import('@/components/map/Map'), { ssr: false });
-
-interface Stop {
-  id: string;
-  name: string;
-  type: 'BUS_STOP' | 'METRO_STATION' | 'ANKARAY_STATION';
-  location: {
-    lat: number;
-    lng: number;
-  };
-  routes: string[];
-  distance?: number;
-}
 
 const stopTypeLabels = {
   BUS_STOP: 'Otobüs Durağı',
@@ -50,24 +39,64 @@ function StopsContent() {
   const dispatch = useAppDispatch();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([
-    'BUS_STOP',
-    'METRO_STATION',
-    'ANKARAY_STATION',
-  ]);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(
     null
   );
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadingLocation, setLoadingLocation] = useState(false);
-
-  // Mock data - will be replaced with API call
-  const [stops, setStops] = useState<Stop[]>([]);
+  const [allStops, setAllStops] = useState<Stop[]>([]);
+  const [filteredStops, setFilteredStops] = useState<Stop[]>([]);
 
   useEffect(() => {
+    // Load stops data
+    loadStopsData();
     // Request user location on mount
     getUserLocation();
   }, []);
+
+  useEffect(() => {
+    // Filter and sort stops when search query or user location changes
+    updateFilteredStops();
+  }, [searchQuery, userLocation, allStops]);
+
+  const loadStopsData = async () => {
+    setLoading(true);
+    try {
+      const stops = await loadStops();
+      setAllStops(stops);
+    } catch (error) {
+      console.error('Error loading stops:', error);
+      dispatch(
+        showToast({
+          message: 'Duraklar yüklenirken hata oluştu',
+          type: 'error',
+        })
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateFilteredStops = () => {
+    let stops = allStops;
+
+    // Apply search filter
+    if (searchQuery) {
+      stops = searchStops(stops, searchQuery);
+    }
+
+    // Calculate distances and sort by proximity if user location is available
+    if (userLocation) {
+      stops = getNearbyStops(stops, userLocation[0], userLocation[1]);
+      // Limit to closest 50 stops for performance
+      stops = stops.slice(0, 50);
+    } else {
+      // Limit to first 50 stops if no location
+      stops = stops.slice(0, 50);
+    }
+
+    setFilteredStops(stops);
+  };
 
   const getUserLocation = () => {
     if ('geolocation' in navigator) {
@@ -82,7 +111,6 @@ function StopsContent() {
               type: 'success',
             })
           );
-          // TODO: Fetch nearby stops
         },
         (error) => {
           setLoadingLocation(false);
@@ -108,14 +136,6 @@ function StopsContent() {
     }
   };
 
-  const toggleStopType = (type: string) => {
-    if (selectedTypes.includes(type)) {
-      setSelectedTypes(selectedTypes.filter((t) => t !== type));
-    } else {
-      setSelectedTypes([...selectedTypes, type]);
-    }
-  };
-
   const formatDistance = (meters?: number): string => {
     if (!meters) return '';
     if (meters < 1000) return `${Math.round(meters)} m`;
@@ -128,42 +148,43 @@ function StopsContent() {
           position: userLocation,
           popup: '<strong>Konumunuz</strong>',
         },
-        ...stops.map((stop) => ({
+        ...filteredStops.map((stop) => ({
           position: [stop.location.lat, stop.location.lng] as [number, number],
           popup: `<strong>${stop.name}</strong><br>${
             stopTypeLabels[stop.type]
-          }`,
+          }<br>${stop.distance ? `${formatDistance(stop.distance)} uzaklıkta` : ''}`,
         })),
       ]
     : [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-green-50/30 to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <header className="bg-gradient-to-r from-green-500 via-green-600 to-emerald-600 shadow-xl border-b border-white/10 sticky top-0 z-40 backdrop-blur-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <button
                 onClick={() => router.push('/dashboard')}
-                className="text-gray-600 hover:text-gray-900"
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all duration-300 hover:scale-110 backdrop-blur-sm shadow-lg"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <MapPin className="w-7 h-7" />
                   Yakınımdaki Duraklar
                 </h1>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-green-100 text-sm mt-0.5">
                   Çevrenizdeki toplu taşıma duraklarını keşfedin
                 </p>
               </div>
             </div>
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={getUserLocation}
               disabled={loadingLocation}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 bg-white hover:bg-gray-100 text-green-600"
             >
               {loadingLocation ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -181,50 +202,20 @@ function StopsContent() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Column: Filters & Results */}
           <div className="space-y-6">
-            {/* Search & Filters */}
-            <Card className="p-6">
-              <div className="space-y-4">
-                {/* Search Input */}
-                <Input
-                  placeholder="Durak adı ara..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  leftIcon={<Search className="w-5 h-5" />}
-                />
-
-                {/* Stop Type Filters */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <Filter className="w-4 h-4 inline mr-1" />
-                    Durak Türü
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(stopTypeLabels).map(([type, label]) => (
-                      <button
-                        key={type}
-                        onClick={() => toggleStopType(type)}
-                        className={`
-                          px-3 py-2 rounded-lg text-sm font-medium
-                          transition-all
-                          ${
-                            selectedTypes.includes(type)
-                              ? `${stopTypeColors[type as keyof typeof stopTypeColors]} text-white`
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }
-                        `}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+            {/* Search */}
+            <Card variant="glass" className="p-6 animate-scale-in">
+              <Input
+                placeholder="Durak adı ara..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                leftIcon={<Search className="w-5 h-5" />}
+              />
             </Card>
 
             {/* Stops List */}
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Yakınımdaki Duraklar
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Tüm Duraklar
               </h2>
 
               {loading ? (
@@ -242,26 +233,33 @@ function StopsContent() {
                     </Card>
                   ))}
                 </div>
-              ) : stops.length === 0 ? (
+              ) : filteredStops.length === 0 ? (
                 // Empty State
-                <Card className="p-12">
-                  <div className="text-center text-gray-500">
-                    <Bus className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                    <p className="text-lg font-medium mb-2">
-                      Yakınınızda durak bulunamadı
+                <Card variant="glass" className="p-12 animate-scale-in">
+                  <div className="text-center text-gray-500 dark:text-gray-400">
+                    <div className="inline-block p-4 bg-green-100 dark:bg-green-900/20 rounded-2xl mb-4">
+                      <Bus className="w-12 h-12 mx-auto text-green-500 animate-pulse" />
+                    </div>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                      {searchQuery ? 'Arama sonucu bulunamadı' : 'Yakınınızda durak bulunamadı'}
                     </p>
-                    <p className="text-sm">
-                      Konumunuzu kontrol edin veya haritada arama yapın
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {searchQuery
+                        ? 'Farklı anahtar kelimelerle tekrar deneyin'
+                        : 'Konumunuzu kontrol edin veya haritada arama yapın'}
                     </p>
                   </div>
                 </Card>
               ) : (
                 // Stops List
                 <div className="space-y-3">
-                  {stops.map((stop) => (
+                  {filteredStops.map((stop) => (
                     <Card
                       key={stop.id}
-                      className="p-4 hover:shadow-md transition-shadow cursor-pointer"
+                      variant="gradient"
+                      hover
+                      animate
+                      className="p-4 cursor-pointer"
                     >
                       <div className="flex items-start gap-4">
                         {/* Stop Icon */}
@@ -275,12 +273,20 @@ function StopsContent() {
 
                         {/* Stop Info */}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-gray-900 mb-1">
+                          <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
                             {stop.name}
                           </h3>
-                          <p className="text-sm text-gray-600 mb-2">
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                             {stopTypeLabels[stop.type]}
                           </p>
+                          {stop.district && (
+                            <p className="text-xs text-gray-500 dark:text-gray-500 mb-2">
+                              {stop.district}
+                            </p>
+                          )}
+                          {!stop.district && (
+                            <div className="mb-2"></div>
+                          )}
 
                           {/* Routes */}
                           {stop.routes.length > 0 && (
@@ -288,7 +294,7 @@ function StopsContent() {
                               {stop.routes.slice(0, 5).map((route, idx) => (
                                 <span
                                   key={idx}
-                                  className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded"
+                                  className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded font-medium"
                                 >
                                   {route}
                                 </span>
@@ -305,10 +311,10 @@ function StopsContent() {
                         {/* Distance */}
                         {stop.distance && (
                           <div className="text-right">
-                            <p className="text-sm font-medium text-gray-900">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
                               {formatDistance(stop.distance)}
                             </p>
-                            <p className="text-xs text-gray-500">mesafe</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">mesafe</p>
                           </div>
                         )}
                       </div>
@@ -320,13 +326,13 @@ function StopsContent() {
           </div>
 
           {/* Right Column: Map */}
-          <div className="lg:sticky lg:top-6 h-[calc(100vh-8rem)]">
-            <Card className="h-full p-0 overflow-hidden">
+          <div className="lg:sticky lg:top-28 h-[calc(100vh-10rem)]">
+            <Card variant="glass" className="h-full p-0 overflow-hidden shadow-xl animate-scale-in" style={{ animationDelay: '200ms' } as any}>
               <Map
                 center={userLocation || [39.9334, 32.8597]}
                 zoom={userLocation ? 15 : 13}
                 markers={mapMarkers}
-                className="h-full w-full rounded-lg"
+                className="h-full w-full rounded-2xl"
               />
             </Card>
           </div>

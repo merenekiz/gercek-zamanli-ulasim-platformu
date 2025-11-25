@@ -26,7 +26,7 @@ class RouteService {
   private readonly CACHE_TTL = 1800; // 30 dakika
 
   /**
-   * Rota arama - Toplu taşıma seçenekleri döndürür
+   * Rota arama - Toplu taşıma ve taksi seçenekleri döndürür
    */
   async searchRoutes(request: RouteRequest): Promise<RouteOption[]> {
     try {
@@ -38,8 +38,17 @@ class RouteService {
         return cachedResult;
       }
 
-      // Google Transit API ile rota seçenekleri al
-      const routes = await this.calculateTransitRoutes(request);
+      // Google Transit API ile rota seçenekleri al + Taksi rotası
+      const [transitRoutes, taxiRoute] = await Promise.all([
+        this.calculateTransitRoutes(request),
+        this.calculateTaxiRoute(request),
+      ]);
+
+      // Tüm rotaları birleştir
+      let routes = [...transitRoutes];
+      if (taxiRoute) {
+        routes.push(taxiRoute);
+      }
 
       // Rotaları sırala
       const sortedRoutes = this.sortRoutes(routes, request.preferences);
@@ -47,7 +56,7 @@ class RouteService {
       // Cache'e kaydet
       await this.saveToCache(cacheKey, sortedRoutes);
 
-      logger.info(`Found ${sortedRoutes.length} transit routes`, {
+      logger.info(`Found ${sortedRoutes.length} routes (${transitRoutes.length} transit + ${taxiRoute ? 1 : 0} taxi)`, {
         origin: request.origin,
         destination: request.destination,
       });
@@ -57,6 +66,91 @@ class RouteService {
       logger.error('Route search error:', error);
       throw new Error('Rota arama sırasında hata oluştu: ' + error.message);
     }
+  }
+
+  /**
+   * Taksi rotası hesapla
+   */
+  private async calculateTaxiRoute(request: RouteRequest): Promise<RouteOption | null> {
+    const { origin, destination, departureTime, modes } = request;
+
+    // Kullanıcı TAXI modunu seçmediyse taksi rotası döndürme
+    if (modes && modes.length > 0 && !modes.includes(TransportMode.TAXI)) {
+      return null;
+    }
+
+    try {
+      // Google Directions API'den driving rotası al
+      const drivingRoute = await GoogleTransitService.calculateDrivingRoute({
+        origin: { lat: origin.lat, lng: origin.lng },
+        destination: { lat: destination.lat, lng: destination.lng },
+        departureTime,
+        language: 'tr',
+      });
+
+      if (!drivingRoute) {
+        return null;
+      }
+
+      // Taksi ücretini hesapla
+      const taxiFare = this.calculateTaxiFare(drivingRoute.distance);
+
+      // RouteOption formatına dönüştür
+      const taxiOption: RouteOption = {
+        id: this.generateRouteId(),
+        segments: [{
+          mode: TransportMode.TAXI,
+          from: {
+            lat: drivingRoute.startLocation.lat,
+            lng: drivingRoute.startLocation.lng,
+            name: drivingRoute.startAddress,
+          },
+          to: {
+            lat: drivingRoute.endLocation.lat,
+            lng: drivingRoute.endLocation.lng,
+            name: drivingRoute.endAddress,
+          },
+          distance: drivingRoute.distance,
+          duration: drivingRoute.duration,
+          instructions: `Taksi ile ${drivingRoute.distanceText} mesafe`,
+          polyline: drivingRoute.polyline,
+        }],
+        totalDistance: drivingRoute.distance,
+        totalDuration: drivingRoute.duration,
+        totalCost: taxiFare,
+        departureTime: departureTime || new Date(),
+        arrivalTime: new Date((departureTime || new Date()).getTime() + drivingRoute.duration * 1000),
+        isEcoFriendly: false,
+        carbonFootprint: (drivingRoute.distance / 1000) * 0.21, // kg CO2 per km (araba)
+      };
+
+      logger.info('Taxi route calculated', {
+        distance: drivingRoute.distanceText,
+        duration: drivingRoute.durationText,
+        fare: taxiFare,
+      });
+
+      return taxiOption;
+    } catch (error: any) {
+      logger.error('Error calculating taxi route:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Taksi ücreti hesapla (Ankara taksi tarifesi 2024)
+   */
+  private calculateTaxiFare(distanceMeters: number): number {
+    // Ankara taksi tarifesi (2024)
+    const openingFee = 35.00;      // Açılış ücreti
+    const perKmRate = 25.00;       // Kilometre başı ücret
+    const minFare = 130.00;        // Minimum ücret (indi-bindi)
+
+    const distanceKm = distanceMeters / 1000;
+    const calculatedFare = openingFee + (distanceKm * perKmRate);
+
+    // Minimum ücret kontrolü
+    return Math.max(calculatedFare, minFare);
   }
 
   /**
@@ -91,6 +185,17 @@ class RouteService {
     let routes: RouteOption[] = transitResult.map((googleRoute) =>
       this.convertGoogleRouteToRouteOption(googleRoute)
     );
+
+    // Polyline verilerini kontrol et
+    console.log('[RouteService] Routes converted. Checking polylines:');
+    routes.forEach((route, i) => {
+      const polylinesInfo = route.segments.map(s => ({
+        mode: s.mode,
+        hasPolyline: !!s.polyline,
+        polylineLength: s.polyline?.length || 0
+      }));
+      console.log(`[RouteService] Route ${i}:`, JSON.stringify(polylinesInfo));
+    });
 
     console.log('[RouteService] Total routes before filtering:', routes.length);
     console.log('[RouteService] User selected modes:', modes);
@@ -133,7 +238,15 @@ class RouteService {
     const segments: RouteSegment[] = [];
 
     // Her adımı segment olarak ekle
+    console.log('[RouteService] Converting route with', googleRoute.steps?.length, 'steps');
+
     for (const step of googleRoute.steps) {
+      console.log('[RouteService] Step:', {
+        travelMode: step.travelMode,
+        hasPolyline: !!step.polyline,
+        polylineLength: step.polyline?.length || 0
+      });
+
       const segment: RouteSegment = {
         mode: this.mapGoogleModeToTransportMode(step.travelMode, step.transit?.line?.vehicle?.type),
         from: {
@@ -149,7 +262,7 @@ class RouteService {
         distance: step.distance,
         duration: step.duration,
         instructions: step.instructions,
-        polyline: step.polyline,
+        polyline: step.polyline, // Encoded polyline string - frontend will decode with Maps JS API
       };
 
       // Transit (toplu taşıma) adımıysa detayları ekle
@@ -181,6 +294,9 @@ class RouteService {
 
     // Toplu taşıma ücreti (Ankara kart)
     const totalCost = this.calculateTransitCost(segments);
+
+    const segmentsWithPolyline = segments.filter(s => s.polyline).length;
+    console.log('[RouteService] Route created:', segments.length, 'segments,', segmentsWithPolyline, 'with polyline');
 
     return {
       id: this.generateRouteId(),
@@ -215,7 +331,9 @@ class RouteService {
           return TransportMode.METRO;
         case 'TRAM':
         case 'LIGHT_RAIL':
-          return TransportMode.TRAM;
+          // Ankara'da tramvay yok! Google Ankaray'ı TRAM/LIGHT_RAIL olarak gösteriyor
+          // Bu yüzden TRAM -> ANKARAY olarak eşleyelim
+          return TransportMode.ANKARAY;
         case 'TRAIN':
         case 'HEAVY_RAIL':
         case 'COMMUTER_TRAIN':
@@ -234,14 +352,15 @@ class RouteService {
    * Toplu taşıma ücreti hesapla
    */
   private calculateTransitCost(segments: RouteSegment[]): number {
-    // Ankara kart ücreti
+    // Toplu taşıma segmentlerini filtrele (yürüyüş hariç)
     const transitSegments = segments.filter(
       (seg) => seg.mode !== TransportMode.WALKING
     );
 
-    // Her biniş için 1 Ankara kart (17.70 TL)
-    // Aktarmalar: İlk 45 dakika içinde ücretsiz
-    return transitSegments.length > 0 ? 17.70 : 0;
+    // Her biniş için ayrı ücret (31 TL)
+    // Aktarmalarda da her araç için ayrı biniş ücreti ödenir
+    const farePerRide = 31.00;
+    return transitSegments.length * farePerRide;
   }
 
   /**
@@ -289,9 +408,10 @@ class RouteService {
    * Cache key oluştur
    */
   private generateCacheKey(request: RouteRequest): string {
-    const { origin, destination, departureTime } = request;
+    const { origin, destination, departureTime, modes } = request;
     const timeKey = departureTime ? departureTime.getTime() : 'now';
-    return `transit:${origin.lat},${origin.lng}:${destination.lat},${destination.lng}:${timeKey}`;
+    const modesKey = modes?.sort().join(',') || 'all';
+    return `routes:${origin.lat},${origin.lng}:${destination.lat},${destination.lng}:${timeKey}:${modesKey}`;
   }
 
   /**

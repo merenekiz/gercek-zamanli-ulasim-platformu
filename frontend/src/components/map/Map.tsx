@@ -180,10 +180,25 @@ export default function Map({
 
     // Add new markers
     markers.forEach(({ position, popup, icon }) => {
+      // Convert plain icon object to Google Maps format if needed
+      let processedIcon = icon;
+      if (icon && 'url' in icon) {
+        const urlIcon = icon as any;
+        processedIcon = {
+          url: urlIcon.url,
+          scaledSize: urlIcon.scaledSize
+            ? new google.maps.Size(urlIcon.scaledSize.width, urlIcon.scaledSize.height)
+            : undefined,
+          anchor: urlIcon.anchor
+            ? new google.maps.Point(urlIcon.anchor.x, urlIcon.anchor.y)
+            : undefined,
+        };
+      }
+
       const marker = new google.maps.Marker({
         position: { lat: position[0], lng: position[1] },
         map: mapRef.current!,
-        icon: icon,
+        icon: processedIcon,
         animation: google.maps.Animation.DROP,
       });
 
