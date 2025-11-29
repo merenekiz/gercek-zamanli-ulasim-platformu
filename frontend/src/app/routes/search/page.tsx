@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,6 +12,7 @@ import {
   Settings,
   X,
   Navigation,
+  Compass,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
 import { searchRoutes, setSelectedRoute } from '@/lib/store/slices/routeSlice';
@@ -26,6 +27,7 @@ import ProtectedRoute from '@/components/common/ProtectedRoute';
 import Button from '@/components/common/Button';
 import Card from '@/components/common/Card';
 import RouteResults from '@/components/route/RouteResults';
+import NearbyAttractions from '@/components/route/NearbyAttractions';
 
 const LocationSearchInput = dynamic(() => import('@/components/map/LocationSearchInput'), {
   ssr: false,
@@ -42,6 +44,13 @@ interface LocationData {
   lng: number;
 }
 
+// Transit stop icon URLs (constant - moved outside component to prevent re-creation)
+const TRANSIT_STOP_ICONS = {
+  bus: '/icons/bus_stop.png',
+  metro: '/icons/metro_stop.png',
+  ankaray: '/icons/ankaray_stop.png',
+};
+
 function RouteSearchContent() {
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -53,39 +62,6 @@ function RouteSearchContent() {
   const [mapMarkers, setMapMarkers] = useState<any[]>([]);
   const [mapPolylines, setMapPolylines] = useState<any[]>([]);
   const [favoriteRoutes, setFavoriteRoutes] = useState<any[]>([]);
-  const [busStopIconUrl, setBusStopIconUrl] = useState<string | null>(null);
-
-  // Create bus stop icon with white circle background
-  useEffect(() => {
-    const createBusStopIcon = async () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 28;
-      canvas.height = 28;
-      const ctx = canvas.getContext('2d');
-
-      if (!ctx) return;
-
-      // Draw white circle with blue border
-      ctx.fillStyle = 'white';
-      ctx.strokeStyle = '#3B82F6';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(14, 14, 13, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.stroke();
-
-      // Load and draw bus stop PNG
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = '/icons/bus_stop.png';
-      img.onload = () => {
-        ctx.drawImage(img, 6, 6, 16, 16);
-        setBusStopIconUrl(canvas.toDataURL());
-      };
-    };
-
-    createBusStopIcon();
-  }, []);
 
   // Load favorites from localStorage
   useEffect(() => {
@@ -225,7 +201,7 @@ function RouteSearchContent() {
 
     console.log('[RouteSearch] Route segments:', selectedRoute.segments?.length);
 
-    const polylines = [];
+    const polylines: any[] = [];
     const stopMarkers: any[] = [];
 
     // Add origin marker
@@ -236,10 +212,10 @@ function RouteSearchContent() {
       });
     }
 
+    // Process segments: add polylines
     for (const segment of selectedRoute.segments || []) {
       console.log('[RouteSearch] Segment:', segment.mode, 'polyline:', segment.polyline ? 'exists' : 'missing');
 
-      // Add polyline
       if (segment.polyline) {
         try {
           const positions = decodePolyline(segment.polyline);
@@ -253,90 +229,11 @@ function RouteSearchContent() {
               positions,
               color,
               weight,
-              opacity: 0.8,
+              opacity: 1,
             });
           }
         } catch (error) {
           console.error('[RouteSearch] Error decoding polyline:', error);
-        }
-      }
-
-      // Add stop markers for transit segments (TAXI hariç)
-      if (segment.mode !== 'WALKING' && segment.mode !== 'TAXI' && segment.polyline) {
-        try {
-          const positions = decodePolyline(segment.polyline);
-          const color = transportModeMapColors[segment.mode as string] || '#6B7280';
-          const modeLabel = transportModeLabelsMap[segment.mode as string] || segment.mode;
-          const routeName = segment.routeInfo?.routeName || '';
-          const departureStop = segment.routeInfo?.departureStop || '';
-          const arrivalStop = segment.routeInfo?.arrivalStop || '';
-          const numStops = segment.routeInfo?.stops || 0;
-
-          // Sadece BUS, METRO, ANKARAY için özel ikon kullan
-          const modeIconUrls: Record<string, string> = {
-            BUS: busStopIconUrl || '/icons/bus_stop.png', // Canvas ile oluşturulan icon
-            METRO: '/icons/metro_stop.png',
-            ANKARAY: '/icons/ankaray_stop.png',
-          };
-          const iconUrl = modeIconUrls[segment.mode as string];
-
-          // İkon varsa (BUS, METRO, ANKARAY) görsel kullan, yoksa renkli daire
-          let markerIcon;
-          if (iconUrl) {
-            markerIcon = {
-              url: iconUrl,
-              scaledSize: segment.mode === 'BUS' ? { width: 28, height: 28 } : { width: 18, height: 18 },
-              anchor: segment.mode === 'BUS' ? { x: 14, y: 14 } : { x: 9, y: 9 },
-            };
-          } else {
-            markerIcon = {
-              path: 0, // google.maps.SymbolPath.CIRCLE
-              scale: 6,
-              fillColor: color,
-              fillOpacity: 1,
-              strokeColor: '#FFFFFF',
-              strokeWeight: 2,
-            };
-          }
-
-          // API'den gelen durak sayısına göre tüm durakları ekle
-          const totalStops = numStops > 0 ? numStops : 2; // En az 2 durak (biniş-iniş)
-
-          if (positions.length > 0 && totalStops > 0) {
-            // Durakları polyline boyunca eşit aralıklarla yerleştir
-            const interval = positions.length / totalStops;
-
-            for (let i = 0; i < totalStops; i++) {
-              const posIndex = Math.min(Math.floor(i * interval), positions.length - 1);
-              const pos = positions[posIndex];
-              const isFirst = i === 0;
-              const isLast = i === totalStops - 1;
-
-              // Popup içeriği - sadece API'den gelen bilgileri göster
-              let popupContent = `<div style="min-width: 140px; padding: 8px;">
-                <div style="font-weight: bold; color: ${color}; font-size: 13px; margin-bottom: 4px;">
-                  ${modeLabel}${routeName ? ` - ${routeName}` : ''}
-                </div>`;
-
-              if (isFirst && departureStop) {
-                popupContent += `<div style="font-size: 12px; color: #333;">${departureStop}</div>`;
-              } else if (isLast && arrivalStop) {
-                popupContent += `<div style="font-size: 12px; color: #333;">${arrivalStop}</div>`;
-              } else {
-                popupContent += `<div style="font-size: 11px; color: #666;">Durak ${i + 1}/${totalStops}</div>`;
-              }
-
-              popupContent += '</div>';
-
-              stopMarkers.push({
-                position: pos,
-                popup: popupContent,
-                icon: markerIcon,
-              });
-            }
-          }
-        } catch (error) {
-          console.error('[RouteSearch] Error adding stop markers:', error);
         }
       }
     }
@@ -349,11 +246,103 @@ function RouteSearchContent() {
       });
     }
 
-    console.log('[RouteSearch] Total polylines created:', polylines.length);
-    console.log('[RouteSearch] Total stop markers created:', stopMarkers.length);
-
+    // Set polylines and origin/destination markers immediately
     setMapPolylines(polylines);
     setMapMarkers(stopMarkers);
+
+    // Fetch REAL stops from Google Places API (gerçek durak isimleri ile)
+    const fetchRealStops = async () => {
+      console.log('[RouteSearch] Fetching real stops from Places API...');
+      const newStopMarkers = [...stopMarkers];
+
+      for (const segment of selectedRoute.segments || []) {
+        if (['BUS', 'METRO', 'ANKARAY'].includes(segment.mode) && segment.polyline) {
+          const color = transportModeMapColors[segment.mode as string] || '#6B7280';
+          const modeLabel = transportModeLabelsMap[segment.mode as string] || segment.mode;
+          const routeName = segment.routeInfo?.routeName || segment.routeInfo?.routeLongName || '';
+
+          console.log(`[RouteSearch] Fetching ${segment.mode} stops for route: "${routeName}" (segment.routeInfo:`, segment.routeInfo, ')');
+
+          // Determine icon based on mode
+          let iconUrl = '';
+          let iconSize = 24;
+
+          if (segment.mode === 'BUS') {
+            iconUrl = TRANSIT_STOP_ICONS.bus;
+            iconSize = 24; // Bus icon küçültüldü (32'den 24'e)
+          } else if (segment.mode === 'METRO') {
+            iconUrl = TRANSIT_STOP_ICONS.metro;
+            iconSize = 24;
+          } else if (segment.mode === 'ANKARAY') {
+            iconUrl = TRANSIT_STOP_ICONS.ankaray;
+            iconSize = 24;
+          }
+
+          const markerIcon = {
+            url: iconUrl,
+            scaledSize: {
+              width: iconSize,
+              height: iconSize
+            },
+            anchor: {
+              x: iconSize / 2,
+              y: iconSize / 2
+            },
+          };
+
+          try {
+            // Places API'den gerçek durakları al - Route name ile Text Search kullan
+            const response = await fetch('http://localhost:5001/api/v1/stops/along-route', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                polyline: segment.polyline,
+                transitMode: segment.mode,
+                routeName: routeName, // Rota ismi eklendi (örn: "442", "M1")
+              }),
+            });
+
+            if (!response.ok) {
+              console.error(`[RouteSearch] API error for ${segment.mode}:`, response.status);
+              continue;
+            }
+
+            const data = await response.json();
+            const stops = data.data || [];
+            console.log(`[RouteSearch] Found ${stops.length} real stops for ${routeName}`, stops);
+
+            // Add markers for real stops from Places API
+            for (const stop of stops) {
+              const popupContent = `<div style="min-width: 160px; padding: 8px;">
+                <div style="font-weight: bold; color: ${color}; font-size: 13px; margin-bottom: 4px;">
+                  ${routeName} - ${modeLabel}
+                </div>
+                <div style="font-size: 12px; color: #333; font-weight: 500;">
+                  ${stop.name}
+                </div>
+                <div style="font-size: 11px; color: #666; margin-top: 2px;">
+                  ${stop.type === 'BUS_STOP' ? 'Otobüs Durağı' : stop.type === 'METRO_STATION' ? 'Metro İstasyonu' : 'Ankaray İstasyonu'}
+                </div>
+              </div>`;
+
+              newStopMarkers.push({
+                position: [stop.location.lat, stop.location.lng] as [number, number],
+                popup: popupContent,
+                icon: markerIcon,
+              });
+            }
+          } catch (error) {
+            console.error(`[RouteSearch] Error fetching stops for ${segment.mode}:`, error);
+          }
+        }
+      }
+
+      console.log('[RouteSearch] Total markers with real stops:', newStopMarkers.length);
+      setMapMarkers(newStopMarkers);
+    };
+
+    // Fetch real stops asynchronously
+    fetchRealStops();
   }, [selectedRoute, origin, destination]);
 
   const handleOriginSelect = (location: any) => {
@@ -514,6 +503,18 @@ function RouteSearchContent() {
     localStorage.setItem('favoriteRoutes', JSON.stringify(updatedFavorites));
   };
 
+  // Memoize map center and zoom to prevent unnecessary re-renders
+  const mapCenter = useMemo<[number, number]>(() => {
+    if (origin) {
+      return [origin.lat, origin.lng];
+    }
+    return [39.9334, 32.8597]; // Default: Ankara coordinates
+  }, [origin]);
+
+  const mapZoom = useMemo(() => {
+    return origin || destination ? 14 : 13;
+  }, [origin, destination]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
@@ -540,10 +541,10 @@ function RouteSearchContent() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <main className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
           {/* Left Column: Search Form & Results */}
-          <div className="space-y-6">
+          <div className="xl:col-span-4 space-y-6">
             {/* Search Form */}
             <Card variant="glass" className="p-6 animate-scale-in">
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -670,21 +671,32 @@ function RouteSearchContent() {
             )}
           </div>
 
-          {/* Right Column: Map */}
-          <div className="lg:sticky lg:top-28 h-[calc(100vh-10rem)]">
-            <Card variant="glass" className="h-full p-0 overflow-hidden shadow-xl animate-scale-in" style={{ animationDelay: '200ms' } as any}>
+          {/* Middle Column: Map */}
+          <div className="xl:col-span-5 xl:sticky xl:top-28 h-[calc(100vh-10rem)]">
+            <Card variant="glass" className="h-full p-0 overflow-hidden shadow-xl animate-scale-in" style={{ animationDelay: '100ms' } as any}>
               <Map
-                center={
-                  origin
-                    ? [origin.lat, origin.lng]
-                    : [39.9334, 32.8597]
-                }
-                zoom={origin || destination ? 14 : 13}
+                center={mapCenter}
+                zoom={mapZoom}
                 markers={mapMarkers}
                 polylines={mapPolylines}
                 className="h-full w-full rounded-2xl"
               />
             </Card>
+          </div>
+
+          {/* Right Column: Nearby Attractions */}
+          <div className="xl:col-span-3 xl:sticky xl:top-28 h-[calc(100vh-10rem)]">
+            {selectedRoute && destination ? (
+              <NearbyAttractions destination={destination} />
+            ) : (
+              <Card variant="glass" className="p-6 h-full flex items-center justify-center animate-scale-in" style={{ animationDelay: '200ms' } as any}>
+                <div className="text-center text-gray-500 dark:text-gray-400">
+                  <Compass className="w-16 h-16 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm font-medium">Gezilecek Yerler</p>
+                  <p className="text-xs mt-1">Rota seçtiğinizde öneriler burada görünecek</p>
+                </div>
+              </Card>
+            )}
           </div>
         </div>
       </main>

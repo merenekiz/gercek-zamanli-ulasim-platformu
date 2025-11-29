@@ -246,10 +246,24 @@ export class GoogleTransitService {
 
         // Uyarı/bildirimler (varsa)
         headsign: transit.headsign,
+
+        // Ara duraklar (Google API'den gelen gerçek duraklar)
+        intermediateStops: this.extractIntermediateStops(transit, step),
       };
     }
 
     return formatted;
+  }
+
+  /**
+   * Transit segment'ten durakları çıkar
+   * NOT: Google Directions API ara durak listesi sağlamıyor.
+   * Gerçek duraklar frontend'de Places API ile bulunacak.
+   */
+  private static extractIntermediateStops(transit: any, step: any): undefined {
+    // Google API ara durak listesi vermiyor, bu yüzden boş döndürüyoruz
+    // Frontend Places API kullanacak
+    return undefined;
   }
 
   /**

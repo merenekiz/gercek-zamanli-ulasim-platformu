@@ -141,27 +141,31 @@ export default function HomePage() {
             </h2>
             <div className="space-y-2">
               <div className="flex items-center justify-between py-2 border-b border-neutral-200">
-                <span className="text-sm text-neutral-700">Frontend Yapısı</span>
+                <span className="text-sm text-neutral-700">Frontend & UI</span>
                 <span className="badge badge-success">Tamamlandı</span>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-neutral-200">
                 <span className="text-sm text-neutral-700">Backend API</span>
-                <span className="badge badge-warning">Geliştiriliyor</span>
+                <span className="badge badge-success">Tamamlandı</span>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-neutral-200">
-                <span className="text-sm text-neutral-700">Veritabanı Şeması</span>
-                <span className="badge badge-warning">Geliştiriliyor</span>
+                <span className="text-sm text-neutral-700">Google Maps & Places API</span>
+                <span className="badge badge-success">Tamamlandı</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-neutral-200">
+                <span className="text-sm text-neutral-700">Transit Durakları</span>
+                <span className="badge badge-success">Tamamlandı</span>
               </div>
               <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-neutral-700">Google Maps Entegrasyonu</span>
-                <span className="badge bg-neutral-200 text-neutral-700">Bekliyor</span>
+                <span className="text-sm text-neutral-700">Gezilecek Yerler Önerileri</span>
+                <span className="badge badge-success">Tamamlandı</span>
               </div>
             </div>
           </div>
 
           {/* Info */}
           <div className="mt-8 text-center text-sm text-neutral-500">
-            <p>Versiyon 0.1.0 - Geliştirme Aşamasında</p>
+            <p>Versiyon 0.6.0 - Aktif Geliştirme</p>
             <p className="mt-1">Ankara Pilot Projesi</p>
           </div>
         </div>

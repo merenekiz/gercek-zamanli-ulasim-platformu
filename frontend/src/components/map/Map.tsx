@@ -129,11 +129,6 @@ export default function Map({
               elementType: 'labels',
               stylers: [{ visibility: 'on' }],
             },
-            {
-              featureType: 'transit',
-              elementType: 'labels',
-              stylers: [{ visibility: 'on' }],
-            },
           ],
         });
 
@@ -172,6 +167,8 @@ export default function Map({
   useEffect(() => {
     if (!mapRef.current) return;
 
+    console.log('[Map] Updating markers, count:', markers.length);
+
     // Remove old markers and info windows
     markersRef.current.forEach((marker) => marker.setMap(null));
     infoWindowsRef.current.forEach((infoWindow) => infoWindow.close());
@@ -179,45 +176,69 @@ export default function Map({
     infoWindowsRef.current = [];
 
     // Add new markers
-    markers.forEach(({ position, popup, icon }) => {
+    markers.forEach(({ position, popup, icon }, index) => {
+      console.log(`[Map] Adding marker ${index}:`, {
+        position,
+        hasIcon: !!icon,
+        iconType: icon ? (typeof icon) : 'none',
+      });
+
       // Convert plain icon object to Google Maps format if needed
-      let processedIcon = icon;
-      if (icon && 'url' in icon) {
+      let processedIcon: google.maps.Icon | google.maps.Symbol | string | undefined = icon;
+
+      if (icon && typeof icon === 'object' && 'url' in icon) {
         const urlIcon = icon as any;
+
+        console.log(`[Map] Processing icon for marker ${index}:`, {
+          url: urlIcon.url,
+          scaledSize: urlIcon.scaledSize,
+          anchor: urlIcon.anchor,
+        });
+
         processedIcon = {
           url: urlIcon.url,
           scaledSize: urlIcon.scaledSize
             ? new google.maps.Size(urlIcon.scaledSize.width, urlIcon.scaledSize.height)
-            : undefined,
+            : new google.maps.Size(24, 24), // Default size
           anchor: urlIcon.anchor
             ? new google.maps.Point(urlIcon.anchor.x, urlIcon.anchor.y)
-            : undefined,
-        };
+            : new google.maps.Point(12, 12), // Default anchor (center)
+        } as google.maps.Icon;
+
+        console.log(`[Map] Processed icon for marker ${index}:`, processedIcon);
       }
 
-      const marker = new google.maps.Marker({
-        position: { lat: position[0], lng: position[1] },
-        map: mapRef.current!,
-        icon: processedIcon,
-        animation: google.maps.Animation.DROP,
-      });
-
-      if (popup) {
-        const infoWindow = new google.maps.InfoWindow({
-          content: popup,
+      try {
+        const marker = new google.maps.Marker({
+          position: { lat: position[0], lng: position[1] },
+          map: mapRef.current!,
+          icon: processedIcon,
+          animation: google.maps.Animation.DROP,
         });
 
-        marker.addListener('click', () => {
-          // Close all other info windows
-          infoWindowsRef.current.forEach((iw) => iw.close());
-          infoWindow.open(mapRef.current!, marker);
-        });
+        console.log(`[Map] Marker ${index} created successfully`);
 
-        infoWindowsRef.current.push(infoWindow);
+        if (popup) {
+          const infoWindow = new google.maps.InfoWindow({
+            content: popup,
+          });
+
+          marker.addListener('click', () => {
+            // Close all other info windows
+            infoWindowsRef.current.forEach((iw) => iw.close());
+            infoWindow.open(mapRef.current!, marker);
+          });
+
+          infoWindowsRef.current.push(infoWindow);
+        }
+
+        markersRef.current.push(marker);
+      } catch (error) {
+        console.error(`[Map] Error creating marker ${index}:`, error);
       }
-
-      markersRef.current.push(marker);
     });
+
+    console.log('[Map] Total markers added:', markersRef.current.length);
   }, [markers]);
 
   // Update polylines

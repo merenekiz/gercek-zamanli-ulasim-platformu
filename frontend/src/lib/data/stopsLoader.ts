@@ -1,5 +1,5 @@
 // Client-side stops data loader
-import { Stop, parseAllStops } from '../utils/stopsParser';
+import { Stop, parseGeocodedStops } from '../utils/stopsParser';
 
 let cachedStops: Stop[] | null = null;
 

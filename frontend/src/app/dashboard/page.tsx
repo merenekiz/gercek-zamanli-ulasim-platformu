@@ -20,6 +20,7 @@ import ProtectedRoute from '@/components/common/ProtectedRoute';
 import Button from '@/components/common/Button';
 import Card from '@/components/common/Card';
 import ThemeToggle from '@/components/common/ThemeToggle';
+import QuickTour from '@/components/common/QuickTour';
 
 function DashboardContent() {
   const router = useRouter();
@@ -356,10 +357,17 @@ function DashboardContent() {
                 veya SSS bölümümüze göz atabilirsiniz.
               </p>
               <div className="flex gap-3">
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    localStorage.removeItem('quickTourSeen');
+                    window.location.reload();
+                  }}
+                >
                   Hızlı Tur
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => router.push('/faq')}>
                   SSS
                 </Button>
               </div>
@@ -367,6 +375,9 @@ function DashboardContent() {
           </div>
         </div>
       </main>
+
+      {/* Quick Tour */}
+      <QuickTour />
     </div>
   );
 }

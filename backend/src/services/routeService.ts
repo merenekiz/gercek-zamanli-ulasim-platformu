@@ -244,8 +244,23 @@ class RouteService {
       console.log('[RouteService] Step:', {
         travelMode: step.travelMode,
         hasPolyline: !!step.polyline,
-        polylineLength: step.polyline?.length || 0
+        polylineLength: step.polyline?.length || 0,
+        hasTransit: !!step.transit,
       });
+
+      // Debug: Log transit data structure
+      if (step.transit) {
+        console.log('[RouteService] 🚍 Transit step detected:', {
+          hasLine: !!step.transit.line,
+          lineShortName: step.transit.line?.shortName,
+          lineName: step.transit.line?.name,
+          vehicleType: step.transit.line?.vehicle?.type,
+          departureStop: step.transit.departureStop?.name,
+          arrivalStop: step.transit.arrivalStop?.name,
+        });
+      } else {
+        console.log('[RouteService] ⚠️ No transit data for this step (travelMode:', step.travelMode + ')');
+      }
 
       const segment: RouteSegment = {
         mode: this.mapGoogleModeToTransportMode(step.travelMode, step.transit?.line?.vehicle?.type),
@@ -267,6 +282,7 @@ class RouteService {
 
       // Transit (toplu taşıma) adımıysa detayları ekle
       if (step.transit) {
+        console.log('[RouteService] ✅ Setting routeInfo for:', step.transit.line?.shortName || step.transit.line?.name);
         segment.routeInfo = {
           routeName: step.transit.line.shortName || step.transit.line.name,
           routeLongName: step.transit.line.name,
@@ -283,6 +299,14 @@ class RouteService {
           headsign: step.transit.headsign,
           agency: step.transit.line.agency?.name,
         };
+
+        // Google API'den gelen gerçek durakları ekle
+        if (step.transit.intermediateStops && step.transit.intermediateStops.length > 0) {
+          segment.transitStops = step.transit.intermediateStops;
+          console.log(`[RouteService] Added ${step.transit.intermediateStops.length} transit stops for ${segment.routeInfo?.routeName || segment.mode}`);
+        }
+      } else {
+        console.log('[RouteService] ⚠️ Skipping routeInfo - no transit data');
       }
 
       segments.push(segment);
@@ -298,7 +322,15 @@ class RouteService {
     const segmentsWithPolyline = segments.filter(s => s.polyline).length;
     console.log('[RouteService] Route created:', segments.length, 'segments,', segmentsWithPolyline, 'with polyline');
 
-    return {
+    // Debug: Check routeInfo in final segments
+    const segmentsWithRouteInfo = segments.filter(s => s.routeInfo);
+    console.log('[RouteService] 📊 Final segments analysis:', {
+      totalSegments: segments.length,
+      withRouteInfo: segmentsWithRouteInfo.length,
+      routeNames: segmentsWithRouteInfo.map(s => s.routeInfo?.routeName || 'unknown'),
+    });
+
+    const routeOption = {
       id: this.generateRouteId(),
       segments,
       totalDistance,
@@ -309,6 +341,17 @@ class RouteService {
       isEcoFriendly: true,
       carbonFootprint: (totalDistance / 1000) * 0.04, // kg CO2 per km (toplu taşıma)
     };
+
+    // Debug: Log a sample segment to verify structure
+    if (segments.length > 0) {
+      console.log('[RouteService] 🔍 Sample segment structure:', JSON.stringify({
+        mode: segments[0].mode,
+        hasRouteInfo: !!segments[0].routeInfo,
+        routeInfo: segments[0].routeInfo,
+      }, null, 2));
+    }
+
+    return routeOption;
   }
 
   /**
@@ -360,7 +403,17 @@ class RouteService {
     // Her biniş için ayrı ücret (31 TL)
     // Aktarmalarda da her araç için ayrı biniş ücreti ödenir
     const farePerRide = 31.00;
-    return transitSegments.length * farePerRide;
+    const totalCost = transitSegments.length * farePerRide;
+
+    console.log('[RouteService] Transit cost calculation:', {
+      totalSegments: segments.length,
+      transitSegments: transitSegments.length,
+      transitModes: transitSegments.map(s => s.mode),
+      farePerRide,
+      totalCost
+    });
+
+    return totalCost;
   }
 
   /**

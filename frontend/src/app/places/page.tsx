@@ -15,12 +15,18 @@ import {
   Save,
   Navigation,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import Button from '@/components/common/Button';
 import Card from '@/components/common/Card';
 import Input from '@/components/common/Input';
 import { useAppDispatch } from '@/lib/store/hooks';
 import { showToast } from '@/lib/store/slices/uiSlice';
+
+const LocationSearchInput = dynamic(() => import('@/components/map/LocationSearchInput'), {
+  ssr: false,
+  loading: () => <div className="text-sm text-gray-500">Yükleniyor...</div>
+});
 
 interface SavedPlace {
   id: string;
@@ -432,44 +438,27 @@ function PlacesContent() {
                 />
               </div>
 
-              {/* Address */}
+              {/* Address with Autocomplete */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Adres
+                  Adres (Yazmaya başlayın ve seçim yapın)
                 </label>
-                <Input
-                  placeholder="Tam adres giriniz"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                <LocationSearchInput
+                  onLocationSelect={(location: any) => {
+                    setFormData({
+                      ...formData,
+                      address: location.display_name,
+                      lat: location.lat,
+                      lng: location.lng,
+                    });
+                  }}
+                  placeholder="Adres arayın (örn: Kızılay, Ankara)"
                 />
-              </div>
-
-              {/* Coordinates */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Enlem (Lat)
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.000001"
-                    placeholder="39.9334"
-                    value={formData.lat || ''}
-                    onChange={(e) => setFormData({ ...formData, lat: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Boylam (Lng)
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.000001"
-                    placeholder="32.8597"
-                    value={formData.lng || ''}
-                    onChange={(e) => setFormData({ ...formData, lng: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
+                {formData.address && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    ✓ Seçilen: {formData.address}
+                  </p>
+                )}
               </div>
 
               {/* Actions */}

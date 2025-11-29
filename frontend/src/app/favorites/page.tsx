@@ -16,6 +16,13 @@ const Map = dynamic(() => import('@/components/map/Map'), {
   loading: () => <div className="text-center text-gray-500">Harita yükleniyor...</div>
 });
 
+// Transit stop icon URLs
+const TRANSIT_STOP_ICONS = {
+  bus: '/icons/bus_stop.png',
+  metro: '/icons/metro_stop.png',
+  ankaray: '/icons/ankaray_stop.png',
+};
+
 function FavoritesContent() {
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -90,19 +97,19 @@ function FavoritesContent() {
     TRAM: '#8B5CF6',
   };
 
-  const handleRouteSelect = (route: any) => {
+  const handleRouteSelect = async (route: any) => {
     setSelectedRoute(route);
 
-    // Update map markers
-    const markers = [];
+    // Update map markers (origin & destination)
+    const stopMarkers: any[] = [];
     if (route.origin) {
-      markers.push({
+      stopMarkers.push({
         position: [route.origin.lat, route.origin.lng] as [number, number],
         popup: `<strong>Başlangıç:</strong><br>${route.origin.address}`,
       });
     }
     if (route.destination) {
-      markers.push({
+      stopMarkers.push({
         position: [route.destination.lat, route.destination.lng] as [number, number],
         popup: `<strong>Varış:</strong><br>${route.destination.address}`,
       });
@@ -122,6 +129,7 @@ function FavoritesContent() {
                 positions,
                 color,
                 weight,
+                opacity: 1,
               });
             }
           } catch (error) {
@@ -131,8 +139,86 @@ function FavoritesContent() {
       });
     }
 
-    setMapMarkers(markers);
     setMapPolylines(polylines);
+    setMapMarkers(stopMarkers);
+
+    // Fetch REAL transit stops from Google Places API
+    const fetchRealStops = async () => {
+      console.log('[Favorites] Fetching real stops from Places API...');
+      const newStopMarkers = [...stopMarkers];
+
+      for (const segment of route.segments || []) {
+        if (['BUS', 'METRO', 'ANKARAY'].includes(segment.mode) && segment.polyline) {
+          const color = transportModeMapColors[segment.mode as string] || '#6B7280';
+          const routeName = segment.routeInfo?.routeName || segment.routeInfo?.routeLongName || '';
+
+          // Determine icon based on mode
+          let iconUrl = '';
+          let iconSize = 24;
+
+          if (segment.mode === 'BUS') {
+            iconUrl = TRANSIT_STOP_ICONS.bus;
+          } else if (segment.mode === 'METRO') {
+            iconUrl = TRANSIT_STOP_ICONS.metro;
+          } else if (segment.mode === 'ANKARAY') {
+            iconUrl = TRANSIT_STOP_ICONS.ankaray;
+          }
+
+          const markerIcon = {
+            url: iconUrl,
+            scaledSize: { width: iconSize, height: iconSize },
+            anchor: { x: iconSize / 2, y: iconSize / 2 },
+          };
+
+          try {
+            const response = await fetch('http://localhost:5001/api/v1/stops/along-route', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                polyline: segment.polyline,
+                transitMode: segment.mode,
+                routeName: routeName,
+              }),
+            });
+
+            if (!response.ok) {
+              console.error(`[Favorites] API error for ${segment.mode}:`, response.status);
+              continue;
+            }
+
+            const data = await response.json();
+            const stops = data.data || [];
+            console.log(`[Favorites] Found ${stops.length} real stops for ${routeName}`);
+
+            // Add markers for real stops
+            for (const stop of stops) {
+              const popupContent = `<div style="min-width: 160px; padding: 8px;">
+                <div style="font-weight: bold; color: ${color}; font-size: 13px; margin-bottom: 4px;">
+                  ${routeName} - ${segment.mode}
+                </div>
+                <div style="font-size: 12px; color: #333; font-weight: 500;">
+                  ${stop.name}
+                </div>
+              </div>`;
+
+              newStopMarkers.push({
+                position: [stop.location.lat, stop.location.lng] as [number, number],
+                popup: popupContent,
+                icon: markerIcon,
+              });
+            }
+          } catch (error) {
+            console.error(`[Favorites] Error fetching stops for ${segment.mode}:`, error);
+          }
+        }
+      }
+
+      console.log('[Favorites] Total markers with real stops:', newStopMarkers.length);
+      setMapMarkers(newStopMarkers);
+    };
+
+    // Fetch stops asynchronously
+    fetchRealStops();
 
     dispatch(
       showToast({
