@@ -231,7 +231,7 @@ export class TransitStopsService {
 
         const nearbyStops = await this.getNearbyStops(
           { lat, lng },
-          500, // 500 metre yarıçap - geniş arama Google'ın eksik verisi için
+          250, // 250 metre yarıçap - daha dar arama alanı
           [searchType]
         );
 

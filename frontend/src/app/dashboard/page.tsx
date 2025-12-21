@@ -97,6 +97,7 @@ function DashboardContent() {
       description: 'Gideceğiniz yere en hızlı rotayı bulun',
       color: 'bg-blue-500',
       href: '/routes/search',
+      tourId: 'route-search',
     },
     {
       icon: MapPin,
@@ -104,6 +105,7 @@ function DashboardContent() {
       description: 'Sık kullandığınız yerlere hızlıca erişin',
       color: 'bg-indigo-500',
       href: '/places',
+      tourId: 'places',
     },
     {
       icon: Navigation,
@@ -111,6 +113,7 @@ function DashboardContent() {
       description: 'Etrafınızdaki toplu taşıma duraklarını görün',
       color: 'bg-green-500',
       href: '/stops',
+      tourId: 'stops',
     },
     {
       icon: Heart,
@@ -118,6 +121,7 @@ function DashboardContent() {
       description: 'Sık kullandığınız rotalarınız',
       color: 'bg-red-500',
       href: '/favorites',
+      tourId: 'favorites',
     },
     {
       icon: Clock,
@@ -125,6 +129,7 @@ function DashboardContent() {
       description: 'Geçmiş seyahatlerinizi inceleyin',
       color: 'bg-purple-500',
       href: '/history',
+      tourId: 'history',
     },
   ];
 
@@ -233,6 +238,7 @@ function DashboardContent() {
                 key={action.title}
                 className="p-6 cursor-pointer transition-all hover:scale-105"
                 onClick={() => router.push(action.href)}
+                data-tour={action.tourId}
               >
                 <div
                   className={`${action.color} w-12 h-12 rounded-xl flex items-center justify-center mb-4`}

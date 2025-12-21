@@ -1,21 +1,19 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Search,
   MapPin,
-  Clock,
   ArrowLeftRight,
-  Settings,
   X,
   Navigation,
   Compass,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/lib/store/hooks';
-import { searchRoutes, setSelectedRoute } from '@/lib/store/slices/routeSlice';
+import { searchRoutes, setSelectedRoute, clearRoutes } from '@/lib/store/slices/routeSlice';
 import { showToast } from '@/lib/store/slices/uiSlice';
 import {
   routeSearchSchema,
@@ -53,15 +51,147 @@ const TRANSIT_STOP_ICONS = {
 
 function RouteSearchContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
   const { routes, selectedRoute, loading } = useAppSelector((state) => state.route);
 
   const [origin, setOrigin] = useState<LocationData | null>(null);
   const [destination, setDestination] = useState<LocationData | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [mapMarkers, setMapMarkers] = useState<any[]>([]);
   const [mapPolylines, setMapPolylines] = useState<any[]>([]);
   const [favoriteRoutes, setFavoriteRoutes] = useState<any[]>([]);
+
+  // Track if auto-search from query params has been done
+  const autoSearchDoneRef = useRef(false);
+
+  // Load query parameters from URL and auto-search (for repeat trip functionality)
+  useEffect(() => {
+    const originAddress = searchParams?.get('origin');
+    const destinationAddress = searchParams?.get('destination');
+
+    // If no query params, clear everything
+    if (!originAddress && !destinationAddress) {
+      console.log('[RouteSearch] No query params - clearing routes and locations');
+      dispatch(clearRoutes());
+      setOrigin(null);
+      setDestination(null);
+      setValue('origin', '');
+      setValue('destination', '');
+      autoSearchDoneRef.current = false;
+      return;
+    }
+
+    // Reset auto-search flag when query params change
+    console.log('[RouteSearch] Query params detected - resetting auto-search flag');
+    autoSearchDoneRef.current = false;
+
+    // Use Google Geocoding API to convert addresses to coordinates
+    const geocodeAddress = async (address: string) => {
+      try {
+        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+        if (!apiKey) {
+          console.error('Google Maps API key not found');
+          return null;
+        }
+
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`
+        );
+        const data = await response.json();
+
+        if (data.status === 'OK' && data.results[0]) {
+          return {
+            address: data.results[0].formatted_address,
+            lat: data.results[0].geometry.location.lat,
+            lng: data.results[0].geometry.location.lng,
+          };
+        }
+        console.error('Geocoding failed:', data.status);
+        return null;
+      } catch (error) {
+        console.error('Geocoding error:', error);
+        return null;
+      }
+    };
+
+    // Load both origin and destination
+    const loadLocations = async () => {
+      console.log('[RouteSearch] Loading locations from query params');
+
+      // Load origin
+      if (originAddress) {
+        const location = await geocodeAddress(originAddress);
+        if (location) {
+          console.log('[RouteSearch] Origin loaded:', location.address);
+          setOrigin(location);
+          setValue('origin', location.address);
+        }
+      }
+
+      // Load destination
+      if (destinationAddress) {
+        const location = await geocodeAddress(destinationAddress);
+        if (location) {
+          console.log('[RouteSearch] Destination loaded:', location.address);
+          setDestination(location);
+          setValue('destination', location.address);
+        }
+      }
+    };
+
+    loadLocations();
+  }, [searchParams, dispatch]);
+
+  // Auto-search when both origin and destination are loaded from query params
+  useEffect(() => {
+    const originAddress = searchParams?.get('origin');
+    const destinationAddress = searchParams?.get('destination');
+
+    // Only auto-search if:
+    // 1. We have query params
+    // 2. Both origin and destination are loaded
+    // 3. We haven't done auto-search yet
+    if (
+      originAddress &&
+      destinationAddress &&
+      origin &&
+      destination &&
+      !autoSearchDoneRef.current
+    ) {
+      console.log('[RouteSearch] Auto-searching routes from query params');
+      autoSearchDoneRef.current = true;
+
+      // Trigger route search
+      dispatch(
+        searchRoutes({
+          origin: { lat: origin.lat, lng: origin.lng },
+          destination: { lat: destination.lat, lng: destination.lng },
+          modes: ['BUS', 'METRO', 'ANKARAY', 'WALKING', 'TAXI'] as unknown as TransportModeEnum[],
+          preferences: {
+            maxWalkingDistance: 1000,
+            accessibilityRequired: false,
+          },
+        })
+      )
+        .unwrap()
+        .then(() => {
+          dispatch(
+            showToast({
+              message: 'Rotalar başarıyla bulundu',
+              type: 'success',
+            })
+          );
+        })
+        .catch((error: any) => {
+          dispatch(
+            showToast({
+              message: error.message || 'Rota ararken bir hata oluştu',
+              type: 'error',
+            })
+          );
+        });
+    }
+  }, [origin, destination, searchParams, dispatch]);
 
   // Load favorites from localStorage
   useEffect(() => {
@@ -385,6 +515,27 @@ function RouteSearchContent() {
       return;
     }
 
+    // Clear previous routes, polylines, and stop markers before new search
+    console.log('[RouteSearch] Clearing previous routes and map data');
+    dispatch(clearRoutes());
+    setMapPolylines([]);
+
+    // Reset map markers to only show origin and destination
+    const initialMarkers = [];
+    if (origin) {
+      initialMarkers.push({
+        position: [origin.lat, origin.lng] as [number, number],
+        popup: `<strong>Başlangıç:</strong><br>${origin.address}`,
+      });
+    }
+    if (destination) {
+      initialMarkers.push({
+        position: [destination.lat, destination.lng] as [number, number],
+        popup: `<strong>Varış:</strong><br>${destination.address}`,
+      });
+    }
+    setMapMarkers(initialMarkers);
+
     try {
       await dispatch(
         searchRoutes({
@@ -512,7 +663,7 @@ function RouteSearchContent() {
   }, [origin]);
 
   const mapZoom = useMemo(() => {
-    return origin || destination ? 14 : 13;
+    return origin || destination ? 15 : 14;
   }, [origin, destination]);
 
   return (
@@ -552,6 +703,7 @@ function RouteSearchContent() {
                 <LocationSearchInput
                   label="Nereden"
                   placeholder="Başlangıç noktası girin"
+                  value={origin?.address || ''}
                   onLocationSelect={handleOriginSelect}
                   error={errors.origin?.message}
                 />
@@ -571,66 +723,10 @@ function RouteSearchContent() {
                 <LocationSearchInput
                   label="Nereye"
                   placeholder="Varış noktası girin"
+                  value={destination?.address || ''}
                   onLocationSelect={handleDestinationSelect}
                   error={errors.destination?.message}
                 />
-
-                {/* Advanced Options Toggle */}
-                <button
-                  type="button"
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex items-center gap-2 text-sm text-primary hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 font-medium"
-                >
-                  <Settings className="w-4 h-4" />
-                  Gelişmiş Ayarlar
-                </button>
-
-                {/* Advanced Options */}
-                {showAdvanced && (
-                  <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    {/* Departure Time */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        <Clock className="w-4 h-4 inline mr-1" />
-                        Kalkış Zamanı
-                      </label>
-                      <input
-                        type="datetime-local"
-                        {...register('departureTime')}
-                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    {/* Max Walking Distance */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Maksimum Yürüme Mesafesi: {watch('maxWalkingDistance')}m
-                      </label>
-                      <input
-                        type="range"
-                        min="100"
-                        max="2000"
-                        step="100"
-                        {...register('maxWalkingDistance', {
-                          valueAsNumber: true,
-                        })}
-                        className="w-full"
-                      />
-                    </div>
-
-                    {/* Wheelchair Accessible */}
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        {...register('wheelchair')}
-                        className="w-4 h-4 text-primary border-gray-300 dark:border-gray-600 rounded focus:ring-primary-500"
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">
-                        Tekerlekli sandalye erişimi
-                      </span>
-                    </label>
-                  </div>
-                )}
 
                 {/* Search Button */}
                 <Button

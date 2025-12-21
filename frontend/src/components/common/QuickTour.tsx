@@ -19,32 +19,32 @@ const tourSteps: TourStep[] = [
   {
     title: 'Rota Arama 🔍',
     description: 'Başlangıç ve varış noktalarınızı girerek size en uygun rotaları bulabilirsiniz. Otobüs, metro, ankaray ve yürüyüş seçenekleri arasından seçim yapabilirsiniz.',
-    target: 'a[href="/routes/search"]',
-    position: 'right',
-  },
-  {
-    title: 'Duraklar 🚏',
-    description: 'Rota seçtiğinizde, harita üzerinde otobüs, metro ve ankaray durakları özel ikonlarla gösterilir. Durak isimlerini görmek için üzerlerine tıklayabilirsiniz.',
-    target: 'a[href="/stops"]',
-    position: 'right',
+    target: '[data-tour="route-search"]',
+    position: 'bottom',
   },
   {
     title: 'Favori Rotalar ❤️',
     description: 'Sık kullandığınız rotaları favorilere ekleyerek hızlı erişim sağlayabilirsiniz. Kalp ikonuna tıklayarak favori rotalarınızı yönetebilirsiniz.',
-    target: 'a[href="/favorites"]',
-    position: 'right',
+    target: '[data-tour="favorites"]',
+    position: 'bottom',
   },
   {
-    title: 'Gezilecek Yerler 🎯',
-    description: 'Varış noktanızın yakınındaki müzeler, parklar, restoranlar ve diğer ilgi çekici yerler otomatik olarak önerilir.',
-    target: 'a[href="/routes/search"]',
+    title: 'Seyahat Geçmişi 🕐',
+    description: 'Geçmiş seyahatlerinizi inceleyin ve tekrar kullanmak için "Tekrarla" butonuna tıklayın.',
+    target: '[data-tour="history"]',
+    position: 'bottom',
+  },
+  {
+    title: 'Yakınımdaki Duraklar 🚏',
+    description: 'Konumunuza yakın otobüs, metro ve ankaray duraklarını haritada görebilirsiniz. Her durak türü için özel ikonlar kullanılır.',
+    target: '[data-tour="stops"]',
     position: 'bottom',
   },
   {
     title: 'Kayıtlı Yerler 📍',
     description: 'Ev, iş, okul gibi sık kullandığınız yerleri kaydederek rota aramada hızlıca kullanabilirsiniz.',
-    target: 'a[href="/places"]',
-    position: 'right',
+    target: '[data-tour="places"]',
+    position: 'bottom',
   },
   {
     title: 'Hazırsınız! 🚀',
@@ -87,50 +87,61 @@ export default function QuickTour() {
     const targetElement = document.querySelector(step.target);
     if (!targetElement) return;
 
-    const rect = targetElement.getBoundingClientRect();
-    const padding = 8;
-
-    // Highlight position (around target element)
-    setHighlightPosition({
-      top: rect.top - padding,
-      left: rect.left - padding,
-      width: rect.width + padding * 2,
-      height: rect.height + padding * 2,
+    // Scroll element into view smoothly - center element so tooltip can appear below
+    targetElement.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center', // Element in center, tooltip below with space
+      inline: 'center',
     });
 
-    // Popup position (relative to target)
-    const popupWidth = 320;
-    const popupHeight = 200;
-    let top = 0;
-    let left = 0;
+    // Wait for scroll to complete before calculating positions
+    setTimeout(() => {
+      const rect = targetElement.getBoundingClientRect();
+      const padding = 12; // Increased padding for better visibility
 
-    switch (step.position) {
-      case 'right':
-        top = rect.top + rect.height / 2 - popupHeight / 2;
-        left = rect.right + 20;
-        break;
-      case 'left':
-        top = rect.top + rect.height / 2 - popupHeight / 2;
-        left = rect.left - popupWidth - 20;
-        break;
-      case 'bottom':
-        top = rect.bottom + 20;
-        left = rect.left + rect.width / 2 - popupWidth / 2;
-        break;
-      case 'top':
-      default:
-        top = rect.top - popupHeight - 20;
-        left = rect.left + rect.width / 2 - popupWidth / 2;
-        break;
-    }
+      // Highlight position (around target element)
+      setHighlightPosition({
+        top: rect.top - padding,
+        left: rect.left - padding,
+        width: rect.width + padding * 2,
+        height: rect.height + padding * 2,
+      });
 
-    // Ensure popup stays within viewport
-    if (left < 10) left = 10;
-    if (left + popupWidth > window.innerWidth - 10) left = window.innerWidth - popupWidth - 10;
-    if (top < 10) top = 10;
-    if (top + popupHeight > window.innerHeight - 10) top = window.innerHeight - popupHeight - 10;
+      // Popup position (relative to target) - default to bottom
+      const popupWidth = 360;
+      const popupHeight = 200;
+      let top = 0;
+      let left = 0;
 
-    setPopupPosition({ top, left });
+      switch (step.position) {
+        case 'right':
+          top = rect.top + rect.height / 2 - popupHeight / 2;
+          left = rect.right + 24;
+          break;
+        case 'left':
+          top = rect.top + rect.height / 2 - popupHeight / 2;
+          left = rect.left - popupWidth - 24;
+          break;
+        case 'top':
+          top = rect.top - popupHeight - 24;
+          left = rect.left + rect.width / 2 - popupWidth / 2;
+          break;
+        case 'bottom':
+        default:
+          // Default to bottom - show tooltip below the element
+          top = rect.bottom + 24;
+          left = rect.left + rect.width / 2 - popupWidth / 2;
+          break;
+      }
+
+      // Ensure popup stays within viewport
+      if (left < 16) left = 16;
+      if (left + popupWidth > window.innerWidth - 16) left = window.innerWidth - popupWidth - 16;
+      if (top < 16) top = 16;
+      if (top + popupHeight > window.innerHeight - 16) top = window.innerHeight - popupHeight - 16;
+
+      setPopupPosition({ top, left });
+    }, 300); // Wait for smooth scroll animation
   };
 
   const handleClose = () => {
@@ -188,10 +199,10 @@ export default function QuickTour() {
   return (
     <>
       {/* Overlay - darken everything except highlighted element */}
-      <div className="fixed inset-0 z-[60] pointer-events-none">
+      <div className="fixed inset-0 z-[60] pointer-events-none transition-all duration-300">
         {/* Top */}
         <div
-          className="absolute top-0 left-0 right-0 bg-black/60 backdrop-blur-sm"
+          className="absolute top-0 left-0 right-0 bg-black/80 backdrop-blur-lg transition-all duration-300"
           style={{
             height: hasTarget ? highlightPosition.top : '100%',
           }}
@@ -201,7 +212,7 @@ export default function QuickTour() {
           <>
             {/* Left */}
             <div
-              className="absolute bg-black/60 backdrop-blur-sm"
+              className="absolute bg-black/80 backdrop-blur-lg transition-all duration-300"
               style={{
                 top: highlightPosition.top,
                 left: 0,
@@ -212,7 +223,7 @@ export default function QuickTour() {
 
             {/* Right */}
             <div
-              className="absolute bg-black/60 backdrop-blur-sm"
+              className="absolute bg-black/80 backdrop-blur-lg transition-all duration-300"
               style={{
                 top: highlightPosition.top,
                 left: highlightPosition.left + highlightPosition.width,
@@ -223,21 +234,33 @@ export default function QuickTour() {
 
             {/* Bottom */}
             <div
-              className="absolute left-0 right-0 bottom-0 bg-black/60 backdrop-blur-sm"
+              className="absolute left-0 right-0 bottom-0 bg-black/80 backdrop-blur-lg transition-all duration-300"
               style={{
                 top: highlightPosition.top + highlightPosition.height,
               }}
             />
 
-            {/* Highlight border */}
+            {/* Highlight border with glow effect */}
             <div
-              className="absolute border-4 border-purple-500 rounded-lg animate-pulse"
+              className="absolute border-4 border-purple-500 rounded-xl animate-pulse transition-all duration-300"
               style={{
                 top: highlightPosition.top,
                 left: highlightPosition.left,
                 width: highlightPosition.width,
                 height: highlightPosition.height,
-                boxShadow: '0 0 30px rgba(168, 85, 247, 0.5)',
+                boxShadow: '0 0 40px rgba(168, 85, 247, 0.8), 0 0 80px rgba(168, 85, 247, 0.4)',
+              }}
+            />
+
+            {/* Additional inner glow */}
+            <div
+              className="absolute rounded-xl pointer-events-none transition-all duration-300"
+              style={{
+                top: highlightPosition.top,
+                left: highlightPosition.left,
+                width: highlightPosition.width,
+                height: highlightPosition.height,
+                background: 'radial-gradient(circle at center, rgba(168, 85, 247, 0.1) 0%, transparent 70%)',
               }}
             />
           </>
@@ -247,12 +270,12 @@ export default function QuickTour() {
       {/* Tour popup */}
       <div
         ref={popupRef}
-        className="fixed z-[61] pointer-events-auto animate-scale-in"
+        className="fixed z-[61] pointer-events-auto animate-scale-in transition-all duration-300"
         style={{
           top: hasTarget ? `${popupPosition.top}px` : '50%',
           left: hasTarget ? `${popupPosition.left}px` : '50%',
           transform: hasTarget ? 'none' : 'translate(-50%, -50%)',
-          width: '320px',
+          width: '360px',
         }}
       >
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden">

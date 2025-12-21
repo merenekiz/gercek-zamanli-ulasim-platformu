@@ -34,6 +34,13 @@ const stopTypeColors = {
   ANKARAY_STATION: 'bg-orange-500',
 };
 
+// Transit stop icon URLs (matching route search page)
+const TRANSIT_STOP_ICONS = {
+  BUS_STOP: '/icons/bus_stop.png',
+  METRO_STATION: '/icons/metro_stop.png',
+  ANKARAY_STATION: '/icons/ankaray_stop.png',
+};
+
 function StopsContent() {
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -48,11 +55,14 @@ function StopsContent() {
   const [filteredStops, setFilteredStops] = useState<Stop[]>([]);
 
   useEffect(() => {
-    // Load stops data
-    loadStopsData();
     // Request user location on mount
     getUserLocation();
   }, []);
+
+  useEffect(() => {
+    // Load stops data when user location is available
+    loadStopsData();
+  }, [userLocation]);
 
   useEffect(() => {
     // Filter and sort stops when search query or user location changes
@@ -62,8 +72,38 @@ function StopsContent() {
   const loadStopsData = async () => {
     setLoading(true);
     try {
-      const stops = await loadStops();
-      setAllStops(stops);
+      // Load local stops (metro and ankaray from CSV)
+      const localStops = await loadStops();
+
+      // If we have user location, also fetch nearby bus stops from Google Places API
+      if (userLocation) {
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+          const response = await fetch(
+            `${apiUrl}/v1/stops/nearby?lat=${userLocation[0]}&lng=${userLocation[1]}&radius=2000`
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            const apiStops = data.data || [];
+
+            // Combine local stops with API stops
+            const combinedStops = [...localStops, ...apiStops];
+            setAllStops(combinedStops);
+            console.log(`Loaded ${localStops.length} local stops + ${apiStops.length} API stops`);
+          } else {
+            // Fallback to local stops only
+            setAllStops(localStops);
+          }
+        } catch (apiError) {
+          console.error('Error fetching API stops:', apiError);
+          // Fallback to local stops only
+          setAllStops(localStops);
+        }
+      } else {
+        // No location yet, just show local stops
+        setAllStops(localStops);
+      }
     } catch (error) {
       console.error('Error loading stops:', error);
       dispatch(
@@ -148,12 +188,29 @@ function StopsContent() {
           position: userLocation,
           popup: '<strong>Konumunuz</strong>',
         },
-        ...filteredStops.map((stop) => ({
-          position: [stop.location.lat, stop.location.lng] as [number, number],
-          popup: `<strong>${stop.name}</strong><br>${
-            stopTypeLabels[stop.type]
-          }<br>${stop.distance ? `${formatDistance(stop.distance)} uzaklıkta` : ''}`,
-        })),
+        ...filteredStops.map((stop) => {
+          // Get appropriate icon based on stop type
+          const iconUrl = TRANSIT_STOP_ICONS[stop.type];
+          const iconSize = 24;
+
+          return {
+            position: [stop.location.lat, stop.location.lng] as [number, number],
+            popup: `<strong>${stop.name}</strong><br>${
+              stopTypeLabels[stop.type]
+            }<br>${stop.distance ? `${formatDistance(stop.distance)} uzaklıkta` : ''}`,
+            icon: {
+              url: iconUrl,
+              scaledSize: {
+                width: iconSize,
+                height: iconSize,
+              },
+              anchor: {
+                x: iconSize / 2,
+                y: iconSize / 2,
+              },
+            },
+          };
+        }),
       ]
     : [];
 
@@ -331,7 +388,7 @@ function StopsContent() {
               <Map
                 center={userLocation || [39.9334, 32.8597]}
                 zoom={userLocation ? 15 : 13}
-                markers={mapMarkers}
+                markers={mapMarkers as any}
                 className="h-full w-full rounded-2xl"
               />
             </Card>

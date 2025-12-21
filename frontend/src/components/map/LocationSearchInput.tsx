@@ -51,6 +51,13 @@ export default function LocationSearchInput({
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
 
+  // Sync query with external value changes (for swap functionality)
+  useEffect(() => {
+    if (initialValue !== query) {
+      setQuery(initialValue);
+    }
+  }, [initialValue]);
+
   // Initialize Google Places API
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;

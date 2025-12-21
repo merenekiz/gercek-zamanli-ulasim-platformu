@@ -104,11 +104,20 @@ export class AttractionsService {
         }
       }
 
-      // Değerlendirme sayısına göre sırala (en çok değerlendirme alan en üstte)
+      // Puan ve değerlendirme sayısına göre akıllı sıralama
+      // Skor hesaplama: (rating * 20) + (log10(userRatingsTotal + 1) * 10)
+      // Bu formül hem kaliteyi (rating) hem popülerliği (review count) dengeler
       allAttractions.sort((a, b) => {
+        const ratingA = a.rating || 0;
+        const ratingB = b.rating || 0;
         const ratingsCountA = a.userRatingsTotal || 0;
         const ratingsCountB = b.userRatingsTotal || 0;
-        return ratingsCountB - ratingsCountA;
+
+        // Weighted score: rating matters more, but review count provides confidence
+        const scoreA = (ratingA * 20) + (Math.log10(ratingsCountA + 1) * 10);
+        const scoreB = (ratingB * 20) + (Math.log10(ratingsCountB + 1) * 10);
+
+        return scoreB - scoreA;
       });
 
       // İlk 20 sonucu al

@@ -22,8 +22,8 @@
 - [Geliştirme](#-geliştirme)
 - [Deployment](#-deployment)
 - [Katkıda Bulunma](#-katkıda-bulunma)
-- [Roadmap](#-roadmap)
 - [Lisans](#-lisans)
+- [Proje İstatistikleri](#-proje-i̇statistikleri)
 
 ---
 
@@ -45,10 +45,17 @@
 
 - ✅ **Transit Durakları Gösterimi:** Rota üzerindeki gerçek otobüs, metro ve ankaray durakları özel PNG ikonlarıyla gösterilir
 - ✅ **Gezilecek Yerler Paneli:** Varış noktası yakınındaki turistik yerler, müzeler, parklar, restoranlar otomatik önerilir
-- ✅ **FAQ Sayfası:** Sıkça sorulan sorular ve cevapları içeren yardım sayfası
-- ✅ **Hızlı Tur Sistemi:** localStorage ile ilk kullanıcılar için tek seferlik 7 adımlık ürün turu
-- ✅ **Kayıtlı Yerlerde Autocomplete:** Nominatim API ile adres arama ve otomatik tamamlama
+- ✅ **Harita Temizleme:** Her yeni rota aramasında önceki rotalar ve duraklar otomatik temizlenir
+- ✅ **Swap Locations:** Başlangıç ve varış noktalarını tek tıkla değiştirme
+- ✅ **Tekrarlama Sistemi:** Seyahat geçmişinden rotaları tekrarlama ve otomatik arama
+- ✅ **Hızlı Tur Sistemi:** Spotlight efekti ve blur backdrop ile interaktif 7 adımlık ürün turu
+- ✅ **Şifre Güvenlik Göstergesi:** 4 seviyeli şifre güçlendirme göstergesi (Weak/Fair/Good/Strong)
+- ✅ **FAQ Sayfası:** 10 detaylı S&C çifti içeren yardım sayfası
+- ✅ **Kayıtlı Yerlerde Autocomplete:** Nominatim API ile debounced adres arama
 - ✅ **Favorilerde Durak Desteği:** Favori rotalarda da durakları görüntüleme
+- ✅ **Seyahat Geçmişi Filtreleme:** Bugün, Bu Hafta, Bu Ay filtreleri
+- ✅ **Yakındaki Duraklar:** Google Places API + CSV verisi ile kapsamlı durak listesi
+- ✅ **Empty States:** Tüm sayfalarda kullanıcı dostu boş durum mesajları
 
 ---
 
@@ -58,20 +65,23 @@
 
 #### 🔐 Kimlik Doğrulama
 - Kayıt ve giriş (JWT tabanlı)
-- Şifre sıfırlama ve değiştirme
-- E-posta doğrulama desteği
-- Korumalı rotalar ve rol tabanlı erişim kontrolü
+- Access token ve refresh token sistemi
+- Korumalı rotalar (Protected Routes)
+- Token otomatik yenileme
 
 #### 🗺️ Rota Planlama
 - **Çok Modlu Arama:** Otobüs, metro, ankaray, yürüyüş, taksi
-- **OSRM Entegrasyonu:** Yüksek performanslı rota hesaplama
+- **Akıllı Rota Hesaplama:** Google Directions API ile yüksek performanslı rota algoritmaları
 - **Alternatif Rotalar:** En hızlı, en kısa ve en az aktarmalı seçenekler
 - **Harita Görünümü:** Google Maps tabanlı interaktif harita
-- **Polyline Gösterimi:** Rotalar renkli çizgilerle haritada görselleştirilir
+- **Polyline Gösterimi:** Rotalar renkli çizgilerle haritada görselleştirilir (her mod farklı renk)
+- **Otomatik Harita Temizleme:** Her yeni arama öncesi harita ve duraklar sıfırlanır
+- **Swap Locations:** Başlangıç-varış noktalarını değiştirme butonu
 - **Transit Durakları:**
-  - Otobüs, metro ve ankaray durakları özel ikonlarla gösterilir (🚏 🚇 🚊)
-  - Google Places API ile gerçek durak konumları
-  - Durak isimlerini görmek için işaretleyicilere tıklayabilirsiniz
+  - Otobüs, metro ve ankaray durakları özel PNG ikonlarla gösterilir
+  - Google Places API ile gerçek durak konumları ve isimleri
+  - Durak isimlerini görmek için marker'lara tıklayabilirsiniz
+  - Rota adı (örn: 442, M1) ile eşleştirme
 
 #### 🎯 Gezilecek Yerler
 - **Otomatik Öneriler:** Varış noktanız yakınındaki ilgi çekici yerler
@@ -91,15 +101,20 @@
 - Rota aramasında hızlı seçim
 
 #### 📜 Seyahat Geçmişi
-- Geçmiş rotaları görüntüleme
-- Filtreleme ve arama
+- Geçmiş rotaları görüntüleme (son 50 trip)
+- **Filtreleme:** Bugün, Bu Hafta, Bu Ay, Tümü
+- **Tekrarlama:** Herhangi bir rotayı tek tıkla tekrarlayın
+- **Detaylar:** Tarih, saat, süre, mesafe, maliyet
+- **Silme:** Tekil trip veya tüm geçmişi temizleme
 
 #### 🎓 Hızlı Tur
 - İlk giriş yapan kullanıcılar için otomatik başlatılan 7 adımlık tur
-- localStorage ile tek seferlik gösterim (kullanıcı bir kez gördükten sonra tekrar gösterilmez)
-- "Geç" butonu ile atlama seçeneği
+- **Spotlight Efekti:** Tanıtılan özellik vurgulanır, etrafı blurlanır
+- **Akıllı Konumlandırma:** Tooltip elementin alt kısmında belirir
+- **Smooth Scroll:** Element ekranın ortasına kaydırılır
+- localStorage ile tek seferlik gösterim
+- "Geç" ve "Geri" butonları ile navigasyon
 - Dashboard'dan "Hızlı Tur" butonu ile yeniden başlatma
-- Her özellik adım adım tanıtılır
 
 #### ❓ SSS (Sıkça Sorulan Sorular)
 - 10 adet detaylı S&C çifti
@@ -115,14 +130,13 @@
 
 #### Backend
 - RESTful API (Express.js + TypeScript)
-- PostgreSQL (yapısal veriler) + PostGIS (coğrafi sorgular)
-- MongoDB (gerçek zamanlı veriler - hazır)
-- Redis (önbellekleme - hazır)
-- Socket.io (WebSocket - hazır)
+- PostgreSQL (kullanıcı verileri) + PostGIS (coğrafi sorgular)
+- Redis (rota aramaları için 30 dakikalık cache)
 - Winston loglama sistemi
 - İstek sınırlama ve güvenlik middleware'leri
 - Google Places API entegrasyonu (duraklar ve gezilecek yerler)
-- OSRM API entegrasyonu (rota hesaplama)
+- Google Directions API entegrasyonu (transit ve taksi rotaları)
+- Google Geocoding API (adres ↔ koordinat dönüşümü)
 
 #### Frontend
 - Next.js 14 (App Router)
@@ -162,6 +176,18 @@
 - Adres otomatik tamamlama (Nominatim)
 - Kayıtlı yerleri düzenleme ve silme
 
+### Seyahat Geçmişi
+- Geçmiş rotalar listeleme (tarih, saat, başlangıç-varış)
+- Filtreleme seçenekleri (Bugün, Bu Hafta, Bu Ay, Tümü)
+- Tekrarlama butonu ile aynı rotayı otomatik arama
+- Tekil trip silme ve tüm geçmişi temizleme
+
+### Yakınımdaki Duraklar
+- Google Places API + CSV verisi ile otobüs, metro, ankaray durakları
+- Haritada renkli marker'larla gösterim
+- Mesafe hesaplama ve sıralama
+- Durak detay bilgileri (isim, adres, koordinatlar)
+
 ---
 
 ## 🛠️ Teknoloji Yığını
@@ -188,16 +214,14 @@
 | **Node.js** | 18+ | Runtime |
 | **Express.js** | 4.18 | Web framework |
 | **TypeScript** | 5.3 | Tip güvenliği |
-| **PostgreSQL** | 15 | İlişkisel veritabanı |
+| **PostgreSQL** | 15 | İlişkisel veritabanı (kullanıcı verileri) |
 | **PostGIS** | 3.3 | Coğrafi sorgular |
-| **MongoDB** | 6.0 | NoSQL (gerçek zamanlı veriler) |
-| **Redis** | 7.0 | Önbellekleme |
+| **Redis** | 7.0 | Önbellekleme (rota aramaları, 30 dk TTL) |
 | **Sequelize** | 6.35 | PostgreSQL ORM |
-| **Mongoose** | 8.0 | MongoDB ODM |
-| **Socket.io** | 4.6 | WebSocket |
-| **JWT** | 9.0 | Kimlik doğrulama |
+| **JWT** | 9.0 | Kimlik doğrulama (access + refresh tokens) |
 | **Winston** | 3.11 | Loglama |
 | **Bcrypt** | 5.1 | Şifre hashleme |
+| **Express Rate Limit** | - | API rate limiting |
 
 ### Harici API'ler
 
@@ -205,7 +229,7 @@
 |-----|----------|---------|
 | **Google Maps JavaScript API** | Harita gösterimi | $200/ay ücretsiz kredi |
 | **Google Places API** | Transit durakları, gezilecek yerler | $200/ay ücretsiz kredi |
-| **OSRM** | Rota hesaplama | Ücretsiz |
+| **Google Directions API** | Rota hesaplama | $200/ay ücretsiz kredi |
 | **Nominatim** | Geocoding, autocomplete | Ücretsiz |
 
 ### DevOps
@@ -227,7 +251,7 @@ Sisteminizde aşağıdaki yazılımların kurulu olması gerekmektedir:
 - **Node.js** 18+ ve **npm** 9+
 - **Docker** ve **Docker Compose**
 - **Git**
-- **Google Maps API Key** (opsiyonel, duraklar ve gezilecek yerler için)
+- **Google Maps API Key** (gerekli - harita, rota planlama, duraklar ve gezilecek yerler için)
 
 ### Kurulum
 
@@ -290,10 +314,7 @@ JWT_REFRESH_EXPIRES_IN=30d
 # Google Maps API
 GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
 
-# OSRM
-OSRM_BASE_URL=http://router.project-osrm.org
-
-# Email (opsiyonel - şifre sıfırlama için)
+# Email (opsiyonel - şu anda kullanılmıyor, gelecek özellikler için)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
@@ -310,9 +331,9 @@ docker-compose up -d
 
 Bu komut aşağıdaki servisleri başlatır:
 
-- **PostgreSQL** (port 5432) - İlişkisel veritabanı
-- **MongoDB** (port 27017) - NoSQL veritabanı
-- **Redis** (port 6379) - Önbellek
+- **PostgreSQL** (port 5432) - İlişkisel veritabanı (kullanıcı verileri, rotalar, favoriler)
+- **MongoDB** (port 27017) - NoSQL veritabanı (şu anda kullanılmıyor, gelecek özellikler için hazır)
+- **Redis** (port 6379) - Önbellek (rota aramaları, 30 dk TTL)
 - **Backend API** (port 5001) - Express.js API
 - **Frontend** (port 3000) - Next.js web uygulaması
 
@@ -324,7 +345,7 @@ PostgreSQL tablolarını oluşturun:
 docker-compose exec postgres psql -U ankara_admin -d ankara_ulasim_db -f /docker-entrypoint-initdb.d/init.sql
 ```
 
-MongoDB koleksiyonları otomatik olarak oluşturulacaktır.
+**Not:** MongoDB şu anda aktif olarak kullanılmamaktadır. Gelecek özellikler (gerçek zamanlı araç takibi, vb.) için hazır durumdadır.
 
 #### 5. Uygulamayı Açın
 
@@ -334,6 +355,72 @@ Tarayıcınızda aşağıdaki adresleri açın:
 - **Backend API:** [http://localhost:5001](http://localhost:5001)
 - **API Health Check:** [http://localhost:5001/api/v1/health](http://localhost:5001/api/v1/health)
 
+### Mobil Cihazınızdan Erişim
+
+Projeyi telefonunuzdan veya tabletten kullanmak için:
+
+#### 1. Bilgisayarınızın Local IP Adresini Bulun
+
+**macOS/Linux:**
+```bash
+ipconfig getifaddr en0  # Wi-Fi
+# veya
+ipconfig getifaddr en1  # Ethernet
+```
+
+**Windows:**
+```bash
+ipconfig
+# Wireless LAN adapter Wi-Fi altındaki IPv4 Address'e bakın
+```
+
+Örnek çıktı: `10.14.8.222` (Bu adres sizin yerel ağınızdaki IP adresinizdir)
+
+#### 2. Frontend ve Backend URL'lerini Güncelleyin
+
+**Frontend** [(.env.local)](frontend/.env.local):
+```env
+# Localhost yerine local IP kullanın
+NEXT_PUBLIC_API_URL=http://10.14.8.222:5001/api
+NEXT_PUBLIC_WS_URL=ws://10.14.8.222:5001
+```
+
+**Backend** [(.env)](backend/.env):
+```env
+# CORS ayarlarını mobil erişim için güncelleyin
+CORS_ORIGIN=http://10.14.8.222:3000
+```
+
+#### 3. Docker Servislerini Yeniden Başlatın
+
+```bash
+cd /Users/merenekiz/vscode/gercek-zamanli-ulasim-platformu
+docker-compose down
+docker-compose up -d --build
+```
+
+#### 4. Mobil Cihazınızdan Bağlanın
+
+**Önemli:** Bilgisayarınız ve mobil cihazınız **aynı Wi-Fi ağında** olmalıdır.
+
+Mobil tarayıcınızda şu adresi açın:
+```
+http://10.14.8.222:3000
+```
+
+**Not:** `10.14.8.222` yerine kendi local IP adresinizi kullanın.
+
+#### Sorun Giderme
+
+- **Bağlantı kurulamıyor?**
+  - Bilgisayar ve telefon aynı Wi-Fi ağında mı kontrol edin
+  - Bilgisayarınızın firewall ayarlarını kontrol edin (port 3000 ve 5001'e izin verin)
+  - Local IP adresinin doğru olduğundan emin olun
+
+- **API istekleri başarısız oluyor?**
+  - Backend `.env` dosyasında `CORS_ORIGIN` ayarını kontrol edin
+  - Frontend `.env.local` dosyasında `NEXT_PUBLIC_API_URL` doğru mu kontrol edin
+
 ### Manuel Kurulum (Docker Olmadan)
 
 Docker kullanmak istemiyorsanız:
@@ -341,7 +428,8 @@ Docker kullanmak istemiyorsanız:
 #### Backend
 
 ```bash
-# PostgreSQL, MongoDB ve Redis'i manuel olarak kurun ve başlatın
+# PostgreSQL ve Redis'i manuel olarak kurun ve başlatın
+# MongoDB opsiyonel (şu anda kullanılmıyor)
 
 cd backend
 npm install
@@ -607,6 +695,33 @@ Content-Type: application/json
 }
 ```
 
+#### Yakındaki Durakları Getir
+
+```bash
+GET /stops/nearby?lat=39.9334&lng=32.8597&radius=1000
+```
+
+**Yanıt:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "stop-123",
+      "name": "Kızılay Metro",
+      "type": "METRO",
+      "location": {
+        "lat": 39.9334,
+        "lng": 32.8597
+      },
+      "distance": 150,
+      "address": "Kızılay, Çankaya"
+    }
+  ]
+}
+```
+
 ### Attractions Endpoints
 
 #### Yakındaki Gezilecek Yerleri Getir
@@ -635,6 +750,93 @@ GET /attractions/nearby?lat=39.9208&lng=32.8541&radius=1500
     }
   ]
 }
+```
+
+### Favorites Endpoints
+
+#### Favorileri Getir
+
+```bash
+GET /favorites
+Authorization: Bearer {token}
+```
+
+#### Favoriye Ekle
+
+```bash
+POST /favorites
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "routeId": "route-123",
+  "origin": { "lat": 39.9334, "lng": 32.8597, "address": "Kızılay" },
+  "destination": { "lat": 39.9208, "lng": 32.8541, "address": "Ulus" }
+}
+```
+
+#### Favoriyi Sil
+
+```bash
+DELETE /favorites/:id
+Authorization: Bearer {token}
+```
+
+### Saved Places Endpoints
+
+#### Kayıtlı Yerleri Getir
+
+```bash
+GET /places
+Authorization: Bearer {token}
+```
+
+#### Yeni Yer Kaydet
+
+```bash
+POST /places
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "name": "Evim",
+  "address": "Çankaya, Ankara",
+  "category": "HOME",
+  "coordinates": { "lat": 39.9208, "lng": 32.8541 }
+}
+```
+
+#### Kayıtlı Yeri Sil
+
+```bash
+DELETE /places/:id
+Authorization: Bearer {token}
+```
+
+### History Endpoints
+
+#### Seyahat Geçmişini Getir
+
+```bash
+GET /history?filter=all
+Authorization: Bearer {token}
+```
+
+Query parametreleri:
+- `filter`: all | today | week | month
+
+#### Geçmişten Sil
+
+```bash
+DELETE /history/:id
+Authorization: Bearer {token}
+```
+
+#### Tüm Geçmişi Temizle
+
+```bash
+DELETE /history
+Authorization: Bearer {token}
 ```
 
 ---
@@ -855,12 +1057,29 @@ Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için [LICENSE](LICE
 ## 📊 Proje İstatistikleri
 
 **Versiyon:** 0.6.0 (Development)
-**Son Güncelleme:** Kasım 2025
+**Son Güncelleme:** Aralık 2024
 **Durum:** 🚧 Aktif Geliştirme
-**Toplam Özellik:** 35+
-**Toplam API Endpoint:** 45+
-**Frontend Bileşen:** 50+
-**Backend Servis:** 10+
+
+### Sayısal Veriler
+- **Frontend Sayfalar:** 10 (Landing, Login, Register, Dashboard, Route Search, Favorites, Places, History, FAQ, Stops)
+- **React Bileşenleri:** 25+ (Button, Card, Input, Toast, Map, RouteCard, QuickTour, vb.)
+- **Backend API Endpoints:** 20+ (Auth, Routes, Stops, Attractions, Favorites, Places, History)
+- **Backend Servisleri:** 8 (Auth, Route, Transit Stops, Attractions, Taxi Fare, Geocoding, vb.)
+- **Desteklenen Ulaşım Modları:** 5 (Otobüs, Metro, Ankaray, Yürüyüş, Taksi)
+- **Harici API Entegrasyonları:** 4 (Google Maps, Google Places, Google Directions, Nominatim)
+
+### localStorage Kullanımı
+Aşağıdaki veriler tarayıcıda yerel olarak saklanır:
+- `tripHistory` - Son 50 seyahat rotası (filtreleme: bugün, bu hafta, bu ay, tümü)
+- `favoriteRoutes` - Kullanıcının favori rotaları
+- `savedPlaces` - Kayıtlı yerler (ev, iş, okul, favori, diğer)
+- `quickTourSeen` - Hızlı turun gösterilip gösterilmediği
+
+### Teknik Metrikler
+- **TypeScript Coverage:** %95+
+- **Docker Container Sayısı:** 5 (Frontend, Backend, PostgreSQL, MongoDB, Redis)
+- **Responsive Breakpoints:** 4 (Mobile, Tablet, Desktop, Wide)
+- **Karanlık Mod:** ✅ Tam destek
 
 ---
 

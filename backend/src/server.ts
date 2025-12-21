@@ -21,9 +21,17 @@ import routes from './routes';
 
 const app: Application = express();
 const httpServer = createServer(app);
+
+// CORS allowed origins - development ortamında hem localhost hem local IP destekle
+const allowedOrigins: string[] = [
+  'http://localhost:3000',
+  'http://10.14.8.222:3000',
+  process.env.CORS_ORIGIN || '',
+].filter((origin) => origin !== '');
+
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
   },
 });
@@ -35,10 +43,10 @@ const io = new SocketIOServer(httpServer, {
 // Security
 app.use(helmet());
 
-// CORS
+// CORS - hem localhost hem local IP'den gelen isteklere izin ver
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: allowedOrigins,
     credentials: true,
   })
 );
@@ -139,7 +147,8 @@ app.use(errorHandler);
 // Start Server
 // ============================================
 
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
+const HOST = '0.0.0.0'; // Tüm network interface'lerinde dinle (mobil erişim için)
 
 // Graceful shutdown
 const gracefulShutdown = () => {
@@ -173,10 +182,10 @@ const startServer = async () => {
     await initializeDatabases();
 
     // Start HTTP server
-    httpServer.listen(PORT, () => {
+    httpServer.listen(PORT, HOST, () => {
       logger.info(`🚀 Gerçek Zamanlı Ulaşım Platformu API`);
       logger.info(`📍 Environment: ${process.env.NODE_ENV}`);
-      logger.info(`🌐 Server running on port ${PORT}`);
+      logger.info(`🌐 Server running on ${HOST}:${PORT}`);
       logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
       logger.info(`📚 API Info: http://localhost:${PORT}/api`);
       logger.info(`🔐 Auth endpoints: http://localhost:${PORT}/api/v1/auth`);
