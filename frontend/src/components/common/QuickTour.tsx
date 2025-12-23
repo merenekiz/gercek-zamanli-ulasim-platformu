@@ -141,7 +141,7 @@ export default function QuickTour() {
       if (top + popupHeight > window.innerHeight - 16) top = window.innerHeight - popupHeight - 16;
 
       setPopupPosition({ top, left });
-    }, 300); // Wait for smooth scroll animation
+    }, 150); // Wait for smooth scroll animation
   };
 
   const handleClose = () => {
@@ -199,10 +199,10 @@ export default function QuickTour() {
   return (
     <>
       {/* Overlay - darken everything except highlighted element */}
-      <div className="fixed inset-0 z-[60] pointer-events-none transition-all duration-300">
+      <div className="fixed inset-0 z-[60] pointer-events-none transition-all duration-150">
         {/* Top */}
         <div
-          className="absolute top-0 left-0 right-0 bg-black/80 backdrop-blur-lg transition-all duration-300"
+          className="absolute top-0 left-0 right-0 bg-black/15 backdrop-blur-sm transition-all duration-150"
           style={{
             height: hasTarget ? highlightPosition.top : '100%',
           }}
@@ -212,7 +212,7 @@ export default function QuickTour() {
           <>
             {/* Left */}
             <div
-              className="absolute bg-black/80 backdrop-blur-lg transition-all duration-300"
+              className="absolute bg-black/15 backdrop-blur-sm transition-all duration-150"
               style={{
                 top: highlightPosition.top,
                 left: 0,
@@ -223,7 +223,7 @@ export default function QuickTour() {
 
             {/* Right */}
             <div
-              className="absolute bg-black/80 backdrop-blur-lg transition-all duration-300"
+              className="absolute bg-black/15 backdrop-blur-sm transition-all duration-150"
               style={{
                 top: highlightPosition.top,
                 left: highlightPosition.left + highlightPosition.width,
@@ -234,7 +234,7 @@ export default function QuickTour() {
 
             {/* Bottom */}
             <div
-              className="absolute left-0 right-0 bottom-0 bg-black/80 backdrop-blur-lg transition-all duration-300"
+              className="absolute left-0 right-0 bottom-0 bg-black/15 backdrop-blur-sm transition-all duration-150"
               style={{
                 top: highlightPosition.top + highlightPosition.height,
               }}
@@ -242,7 +242,7 @@ export default function QuickTour() {
 
             {/* Highlight border with glow effect */}
             <div
-              className="absolute border-4 border-purple-500 rounded-xl animate-pulse transition-all duration-300"
+              className="absolute border-4 border-purple-500 rounded-xl animate-pulse transition-all duration-150"
               style={{
                 top: highlightPosition.top,
                 left: highlightPosition.left,
@@ -254,7 +254,7 @@ export default function QuickTour() {
 
             {/* Additional inner glow */}
             <div
-              className="absolute rounded-xl pointer-events-none transition-all duration-300"
+              className="absolute rounded-xl pointer-events-none transition-all duration-150"
               style={{
                 top: highlightPosition.top,
                 left: highlightPosition.left,
@@ -270,7 +270,7 @@ export default function QuickTour() {
       {/* Tour popup */}
       <div
         ref={popupRef}
-        className="fixed z-[61] pointer-events-auto animate-scale-in transition-all duration-300"
+        className="fixed z-[61] pointer-events-auto animate-scale-in transition-all duration-150"
         style={{
           top: hasTarget ? `${popupPosition.top}px` : '50%',
           left: hasTarget ? `${popupPosition.left}px` : '50%',
