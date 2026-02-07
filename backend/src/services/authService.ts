@@ -16,7 +16,9 @@ interface AuthTokens {
 }
 
 class AuthService {
-  private readonly JWT_SECRET: string = process.env.JWT_SECRET || 'ankara_ulasim_jwt_secret_2024_change_in_production';
+  private readonly JWT_SECRET: string = process.env.JWT_SECRET || (() => {
+    throw new Error('JWT_SECRET environment variable is not set');
+  })();
   private readonly JWT_EXPIRE: string = process.env.JWT_EXPIRE || '15m';
   private readonly JWT_REFRESH_EXPIRE: string = process.env.JWT_REFRESH_EXPIRE || '7d';
 

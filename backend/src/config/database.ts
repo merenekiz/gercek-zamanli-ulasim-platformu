@@ -6,9 +6,9 @@ import logger from '../utils/logger';
 
 // PostgreSQL Configuration
 export const sequelize = new Sequelize(
-  process.env.POSTGRES_DB || 'ankara_ulasim_db',
-  process.env.POSTGRES_USER || 'ankara_admin',
-  process.env.POSTGRES_PASSWORD || 'ankara_password_2024',
+  process.env.POSTGRES_DB || 'gercek_zamanli_ulasim_db',
+  process.env.POSTGRES_USER || 'postgres',
+  process.env.POSTGRES_PASSWORD || '',
   {
     host: process.env.POSTGRES_HOST || 'localhost',
     port: Number(process.env.POSTGRES_PORT) || 5432,
@@ -27,7 +27,7 @@ export const sequelize = new Sequelize(
 export const connectMongoDB = async (): Promise<typeof mongoose> => {
   try {
     const mongoUri = process.env.MONGODB_URI ||
-      'mongodb://ankara_admin:ankara_password_2024@localhost:27017/ankara_ulasim_realtime?authSource=admin';
+      'mongodb://localhost:27017/gercek_zamanli_ulasim_realtime';
 
     await mongoose.connect(mongoUri);
     logger.info('✅ MongoDB connected successfully');

@@ -24,44 +24,18 @@ out/
 .env.test.local
 .env.production.local
 .env*.local
+.env.docker
 
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Database
-*.sqlite
-*.db
-pgdata/
-mongodata/
-
-# Docker
-*.env.docker
-
-# OS
-Thumbs.db
-.DS_Store
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-
-# API Keys (güvenlik)
-**/config/keys.ts
+# Secrets and API Keys
+**/.env
 **/config/secrets.ts
+**/config/keys.ts
+**/*.key
+**/*.pem
+**/credentials.json
+**/oauth2.json
 
-# Build files
-.turbo
-.cache
+# API Configuration Files
+google-api-credentials.json
+firebase-credentials.json
+aws-credentials.json
