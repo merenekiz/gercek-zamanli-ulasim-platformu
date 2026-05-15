@@ -977,7 +977,7 @@ NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=production_google_api_key
 
 ```env
 NODE_ENV=production
-PORT=5001
+PORT=
 DB_HOST=your-postgres-host
 DB_PORT=5432
 DB_NAME=production_db
