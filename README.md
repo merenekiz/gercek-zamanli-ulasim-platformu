@@ -1083,7 +1083,7 @@ Aşağıdaki veriler tarayıcıda yerel olarak saklanır:
 
 ---
 
-**⭐ Bu projeyi beğendiyseniz yıldız vermeyi unutmayın!**
+**⭐ Bu projeyi beğendiyseniz yıldız vermeyi unutmayın.**
 
 ---
 
